@@ -43,6 +43,11 @@ export default class MovieDetails extends React.Component {
         <div className="movie-actor" key={actor}>{actor}</div>
       );
     });
+    var directors = movie.directors.map(function(actor) {
+      return (
+        <div className="movie-actor" key={actor}>{actor}</div>
+      );
+    });
     var writers = movie.writers.map(function(writer) {
       return (
         <div className="movie-writer" key={writer}>{writer}</div>
@@ -66,7 +71,7 @@ export default class MovieDetails extends React.Component {
             <div className="movie-information">
               <div className="movie-title">{movie.title} <span className="movie-year">({movie.year})</span></div>
               <div className="movie-rating-genres">
-                <div className="movie-rating">{movie.imdb.rating}</div>
+                <div className="movie-rating">{movie.imdbrating}</div>
                 <div className="movie-genres">{genres}</div>
               </div>
               <div className="movie-plot">{movie.plot}</div>
@@ -76,7 +81,7 @@ export default class MovieDetails extends React.Component {
               </div>
               <div className="movie-directors">
                 <div className="movie-directors-title">Directed by</div>
-                <div className="movie-director">{movie.director}</div>
+                {directors}
               </div>
               <div className="movie-writers">
                 <div className="movie-writers-title">Written by</div>

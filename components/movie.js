@@ -16,14 +16,14 @@ export default class Movie extends React.Component {
   	var movie = this.props.data;
 
     return (
-	      <a href="#" className="movie" onClick={this.props.onClick} id={movie.imdb_id}>
+	      <a href="#" className="movie" onClick={this.props.onClick} id={movie.imdbid}>
     			<div className="image">
             <img src={path.join(app.getPath('userData'), "posters", movie.poster_path)} alt={movie.title} width="100%" />
           </div>
     			<div className="title">{movie.title}</div>
           <div className="meta">
       			<div className="year">{movie.year}</div>&nbsp;&nbsp;•&nbsp;&nbsp;
-            <div className="rating">{movie.imdb.rating}</div>
+            <div className="rating">{movie.imdbrating}</div>
           </div>
 	      </a>
     );

@@ -43,10 +43,14 @@ const video = ['avi', 'divx', 'flv','mkv', 'mov', 'mp4', 'mpeg', 'mpg', 'swf', '
 var movies_db;
 var tmdb_config = {};
 
+var toArray = function(o) { return Object.keys(o).map(k => o[k]) }
+
 omdbapi.get({
     id: 'tt2543164'            // optionnal (requires imdbid or title) 
 }).then(res => {
     console.log('vankasteel: ', res);
+    console.log(+res.runtime.split(" min")[0]);
+
 }).catch(console.error);
 
 omdb.get("tt2543164", {fullPlot: false, tomatoes: true}, function(err, movie){
@@ -107,6 +111,7 @@ var processFiles = function(files, mainApp) {
 	        		else
 	        		{
 	        			fileList.splice(fileList.indexOf(fileName), 1);;
+	        			next();
 	        		}
 	        	});
 
@@ -159,7 +164,8 @@ var processFiles = function(files, mainApp) {
 							mainApp.setState({status: {mode: 1, message: "Fetching details of "+OSObject['MovieName']}});
 
 							// Get omdb details
-							omdb.get("tt"+OSObject['MovieImdbID'], {fullPlot: false, tomatoes: true}, function(err, movie){
+							// omdb.get("tt"+OSObject['MovieImdbID'], {fullPlot: false, tomatoes: true}, function(err, movie){
+							omdbapi.get({id: "tt"+OSObject['MovieImdbID']}).then(function(movie) {
 
 								// console.log("Omdb", movie);
 
@@ -201,15 +207,47 @@ var processFiles = function(files, mainApp) {
 													mainApp.setState({status: {mode: 1, message: "👍 Adding "+movie.title}});
 
 													// Insert into db
-													movies_db.insert(Object.assign({
+													movies_db.insert({
 														imdb_id: "tt"+OSObject['MovieImdbID'],
+														imdb: {
+															rating: +movie.imdbrating
+														},
+
 														tmdb_id: tmovie['id'],
+
 														poster_path: tmovie['poster_path'],
 														backdrop_path: tmovie['backdrop_path'],
+
 														hash: OSObject['MovieHash'], 
 														fileName: fileList[hashList.indexOf(OSObject['MovieHash'])],
-														bytesize: bytesizeList[hashList.indexOf(OSObject['MovieHash'])]
-													}, movie), function (err, newDoc) {
+														bytesize: bytesizeList[hashList.indexOf(OSObject['MovieHash'])],
+
+														imdbid: "tt"+OSObject['MovieImdbID'],
+														imdbrating: +movie.imdbrating,
+														imdbvotes: +movie.imdbvotes.match(/\d/g).join(''),
+
+														actors: toArray(movie.actors),
+														awards: movie.awards,
+														boxoffice: movie.boxoffice,
+														country: movie.country,
+														directors: toArray(movie.director),
+														dvd: movie.dvd,
+														genres: toArray(movie.genre),
+														language: movie.language.split(', '),
+														plot: movie.plot,
+														production: movie.production,
+														rated: movie.rated,
+														released: new Date(movie.released),
+														runtime: movie.runtime.split(" min")[0],
+														title: movie.title,
+														type: movie,
+														writers: toArray(movie.writer),
+														year: +movie.year,
+
+														rotten: movie.ratings[1].value.split("%")[0],
+														metacritic: movie.metascore,
+
+													}, function (err, newDoc) {
 
 
 														// console.log("Put in db 👍");
@@ -225,8 +263,6 @@ var processFiles = function(files, mainApp) {
 
 
 														mainApp.setState({status: {mode: 1, message: "👍 Added "+movie.title}});
-														mainApp.setState({status: {mode: 0, message: ""}});
-
 														// Brag to the user
 														mainApp.handleChange({});
 														next();
@@ -236,11 +272,15 @@ var processFiles = function(files, mainApp) {
 										}
 									});
 								}).catch(console.error);	// Catching tmdb error
-							});
+
+							}).catch(console.error);		// Catching omdb error
+
+							// });
 
 
 
 						}).then(function(){
+							mainApp.setState({status: {mode: 0, message: ""}});
 							console.log("Phew everything is done");
 						});
 

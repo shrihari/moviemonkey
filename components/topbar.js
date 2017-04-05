@@ -33,16 +33,16 @@ export default class Topbar extends React.Component {
 
   sortByRating(e) {
     let sortby = this.props.sortBy;
-    if (sortby[0] == 'imdb.rating')
+    if (sortby[0] == 'imdbrating')
       sortby[1] *= -1;
-    sortby[0] = 'imdb.rating';
+    sortby[0] = 'imdbrating';
     this.props.onSortChange(sortby);
   }
 
 
   render() {
     let sortClass = "";
-    if (this.props.sortBy[0] == 'imdb.rating')
+    if (this.props.sortBy[0] == 'imdbrating')
         sortClass += "rating "
     else
         sortClass += this.props.sortBy[0] + " "

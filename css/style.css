@@ -350,6 +350,11 @@ select:-internal-list-box, select:-internal-list-box option:checked {
 	text-transform: uppercase;
 }
 .movie-director {
+	display: inline-block;
+	margin-right: 10px;
+}
+.movie-director:not(:last-child)::after {
+	content: ',';
 }
 
 .movie-writers {
