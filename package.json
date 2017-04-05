@@ -1,0 +1,45 @@
+{
+  "name": "movie-monkey",
+  "version": "0.0.1",
+  "description": "A clean and simple, open source movie manager.",
+  "main": "main.js",
+  "scripts": {
+    "dev": "webpack --watch",
+    "start": "electron ."
+  },
+  "repository": "https://github.com/electron/electron-quick-start",
+  "keywords": [
+    "Electron",
+    "quick",
+    "start",
+    "tutorial",
+    "demo"
+  ],
+  "author": "GitHub",
+  "license": "CC0-1.0",
+  "devDependencies": {
+    "babel": "^6.5.2",
+    "babel-core": "^6.18.2",
+    "babel-loader": "^6.2.7",
+    "babel-preset-es2015": "^6.18.0",
+    "babel-preset-react": "^6.16.0",
+    "electron": "^1.4.1",
+    "json-loader": "^0.5.4",
+    "webpack": "^1.13.3",
+    "xml2js": "^0.4.0"
+  },
+  "dependencies": {
+    "filewalker": "^0.1.3",
+    "forEachAsync": "^3.0.0",
+    "image-downloader": "^2.0.3",
+    "movie-art": "^1.0.6",
+    "moviedb": "^0.2.7",
+    "nedb": "^1.8.0",
+    "omdb": "^0.7.0",
+    "omdbapi": "^2.0.1",
+    "opensubtitles-api": "^3.5.0",
+    "react": "^15.3.2",
+    "react-dom": "^15.3.2",
+    "tmdbapi": "^1.0.2"
+  }
+}

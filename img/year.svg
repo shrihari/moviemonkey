@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="33px" height="36px" viewBox="0 0 33 36" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <!-- Generator: Sketch 42 (36781) - http://www.bohemiancoding.com/sketch -->
+    <title>year</title>
+    <desc>Created with Sketch.</desc>
+    <defs></defs>
+    <g id="App" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <path d="M9.9,15.3 L6.3,15.3 L6.3,18.9 L9.9,18.9 L9.9,15.3 Z M18,15.3 L14.4,15.3 L14.4,18.9 L18,18.9 L18,15.3 Z M26.1,15.3 L22.5,15.3 L22.5,18.9 L26.1,18.9 L26.1,15.3 Z M9.9,20.7 L6.3,20.7 L6.3,24.3 L9.9,24.3 L9.9,20.7 Z M18,20.7 L14.4,20.7 L14.4,24.3 L18,24.3 L18,20.7 Z M26.1,20.7 L22.5,20.7 L22.5,24.3 L26.1,24.3 L26.1,20.7 Z M9.9,26.1 L6.3,26.1 L6.3,29.7 L9.9,29.7 L9.9,26.1 Z M18,26.1 L14.4,26.1 L14.4,29.7 L18,29.7 L18,26.1 Z M26.1,26.1 L22.5,26.1 L22.5,29.7 L26.1,29.7 L26.1,26.1 Z M28.8,3.6 L27,3.6 L27,0 L23.4,0 L23.4,3.6 L9,3.6 L9,0 L5.4,0 L5.4,3.6 L3.6,3.6 C1.602,3.6 0.018,5.22 0.018,7.2 L0,32.4 C0,34.38 1.602,36 3.6,36 L28.8,36 C30.78,36 32.4,34.38 32.4,32.4 L32.4,7.2 C32.4,5.22 30.78,3.6 28.8,3.6 Z M28.8,32.4 L3.6,32.4 L3.6,12.6 L28.8,12.6 L28.8,32.4 Z" id="year" fill="#333333" fill-rule="nonzero"></path>
+    </g>
+</svg>
