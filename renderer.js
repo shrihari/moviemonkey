@@ -153,18 +153,13 @@ var processFiles = function(files, mainApp) {
 						// Object.keys(r).forEach(function(key) {
 						//		r[key]
 						// })
-
-						// movies.forEach(function(OSObject) {
-
 						forEachAsync(movies, function(next, OSObject, index, array) {
-
 
 							if(OSObject['MovieKind'] != 'movie') return;
 
 							mainApp.setState({status: {mode: 1, message: "Fetching details of "+OSObject['MovieName']}});
 
 							// Get omdb details
-							// omdb.get("tt"+OSObject['MovieImdbID'], {fullPlot: false, tomatoes: true}, function(err, movie){
 							omdbapi.get({id: "tt"+OSObject['MovieImdbID']}).then(function(movie) {
 
 								// console.log("Omdb", movie);
@@ -208,11 +203,6 @@ var processFiles = function(files, mainApp) {
 
 													// Insert into db
 													movies_db.insert({
-														imdb_id: "tt"+OSObject['MovieImdbID'],
-														imdb: {
-															rating: +movie.imdbrating
-														},
-
 														tmdb_id: tmovie['id'],
 
 														poster_path: tmovie['poster_path'],
@@ -238,9 +228,9 @@ var processFiles = function(files, mainApp) {
 														production: movie.production,
 														rated: movie.rated,
 														released: new Date(movie.released),
-														runtime: movie.runtime.split(" min")[0],
+														runtime: +movie.runtime.split(" min")[0],
 														title: movie.title,
-														type: movie,
+														type: "movie",
 														writers: toArray(movie.writer),
 														year: +movie.year,
 
@@ -248,7 +238,6 @@ var processFiles = function(files, mainApp) {
 														metacritic: movie.metascore,
 
 													}, function (err, newDoc) {
-
 
 														// console.log("Put in db 👍");
 
@@ -261,8 +250,8 @@ var processFiles = function(files, mainApp) {
 															}
 														});
 
-
 														mainApp.setState({status: {mode: 1, message: "👍 Added "+movie.title}});
+
 														// Brag to the user
 														mainApp.handleChange({});
 														next();
@@ -275,33 +264,16 @@ var processFiles = function(files, mainApp) {
 
 							}).catch(console.error);		// Catching omdb error
 
-							// });
-
-
-
 						}).then(function(){
 							mainApp.setState({status: {mode: 0, message: ""}});
 							console.log("Phew everything is done");
 						});
 
+					}).catch(console.error);				// Opensubs movie hash error
 
-
-
-						// });
-
-
-
-
-					});
-				})
-				.catch(console.error);;
-
+				}).catch(console.error);					// Opensubs login error
 
 			});
-
-
-
-			// });
 
 		})
 		.walk();
