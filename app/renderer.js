@@ -394,7 +394,7 @@ class App extends React.Component {
 	// Hide sidebar
 	hideSidebar(e) {
 	    var t = this;
-		movies_db.find({imdb_id: e.currentTarget.id}).exec(function (err, docs) {
+		movies_db.find({imdbid: e.currentTarget.id}).exec(function (err, docs) {
 			t.setState({movie: docs[0], showmoviedetails: true});
 		});
 	}

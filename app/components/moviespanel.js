@@ -14,7 +14,7 @@ export default class MoviesPanel extends React.Component {
     var t = this;
     var movies = this.props.data.map(function(movie) {
       return (
-		    <Movie data={movie} key={movie.imdb_id} onClick={t.props.onMovieSelect} />
+		    <Movie data={movie} key={movie.imdbid} onClick={t.props.onMovieSelect} />
       );
     });
     return (
