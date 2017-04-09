@@ -51,7 +51,7 @@ export default class Topbar extends React.Component {
     
     return (
 		    <div id="topbar">
-			    <input id="searchbar" name="search" type="text" value={this.props.searchQuery} onChange={this.handleSearchChange} />
+			    <input id="searchbar" value={this.props.searchQuery} onChange={this.handleSearchChange} placeholder="Search by title, actors, directors, plot etc.." />
           <div id="sort" className={sortClass}>
             <div className="sort-option sortby-title" onClick={this.sortByTitle}>Title</div>
             <div className="sort-option sortby-year" onClick={this.sortByYear}>Year</div>

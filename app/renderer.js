@@ -116,9 +116,6 @@ var processFiles = function(files, mainApp) {
 	        	});
 
 			}).then(function(){
-				// console.log("Asynch done Lists", fileList.length, hashList.length, bytesizeList.length);
-
-				// console.log("List lengths", fileList.length, hashList.length, bytesizeList.length);
 
 				mainApp.setState({status: {mode: 1, message: "Contacting OpenSubtitles.org server..."}});
 
@@ -126,8 +123,6 @@ var processFiles = function(files, mainApp) {
 				OpenSubtitles.api.LogIn("", "", "en", "Movie Monkey v1").then((result) => {
 
 					mainApp.setState({status: {mode: 1, message: "Identifying your movies..."}});
-
-					// console.log("Sending this list of size", hashList.length, hashList)
 
 					// Use the hashes to identify the movies
 					OpenSubtitles.api.CheckMovieHash(result['token'], hashList).then( (movies_result) => {
@@ -137,130 +132,114 @@ var processFiles = function(files, mainApp) {
 						let r = movies_result['data'];
 						var movies = [], genres = [];
 
-						// console.log("Movie result", movies_result);
-
 						// Convert ugly object into pretty array
 						for (var key in r) {			// if (r.hasOwnProperty(key))
 							if (r[key].hasOwnProperty('MovieHash')) {
 								movies.push(r[key]);
 							}
 						}
-						// console.log("Actual movies", movies.length);
-						// console.log("Movie list", movies);
-						// console.log("File list", fileList)
 
-						// Process each movie
-						// Object.keys(r).forEach(function(key) {
-						//		r[key]
-						// })
 						forEachAsync(movies, function(next, OSObject, index, array) {
 
-							if(OSObject['MovieKind'] != 'movie') return;
+							if(OSObject['MovieKind'] != 'movie') next();
 
 							mainApp.setState({status: {mode: 1, message: "Fetching details of "+OSObject['MovieName']}});
 
 							// Get omdb details
 							omdbapi.get({id: "tt"+OSObject['MovieImdbID']}).then(function(movie) {
 
-								// console.log("Omdb", movie);
+								if(movie.type == 'movie')
+								{
+									mainApp.setState({status: {mode: 1, message: "Fetching poster and backdrop of "+movie.title}});
+									console.log(movie);
+									// Get tmdb details
+									tmdb.find({external_id: "tt"+OSObject['MovieImdbID'], external_source: 'imdb_id' })
+									.then(function(res) {
+										console.log(res)
+										// Get poster and backdrop urls
+										let tmovie = res.movie_results[0];
+										let tposter = tmdb_config['base_url'] + "w500" + tmovie['poster_path'];
+										let tbackdrop = tmdb_config['base_url'] + "original" + tmovie['backdrop_path'];
 
-								mainApp.setState({status: {mode: 1, message: "Fetching poster and backdrop of "+movie.title}});
+										mainApp.setState({status: {mode: 1, message: "Downloading poster for "+movie.title}});
 
-								// Get tmdb details
-								tmdb.find({external_id: "tt"+OSObject['MovieImdbID'], external_source: 'imdb_id' })
-								.then(function(res) {
+										// Download poster
+										img_dl({
+											url: tposter,
+											dest: path.join(app.getPath('userData'), 'posters'),
+											done: function(e, f, i) {
 
-									// console.log("Tmdb", res);
+												mainApp.setState({status: {mode: 1, message: "Downloading backdrop for "+movie.title}});
 
-									// Get poster and backdrop urls
-									let tmovie = res.movie_results[0];
-									let tposter = tmdb_config['base_url'] + "w500" + tmovie['poster_path'];
-									let tbackdrop = tmdb_config['base_url'] + "original" + tmovie['backdrop_path'];
+												// Download backdrop
+												img_dl({
+													url: tbackdrop,
+													dest: path.join(app.getPath('userData'), 'backdrops'),
+													done: function(e, f, i) {
 
-									mainApp.setState({status: {mode: 1, message: "Downloading poster for "+movie.title}});
+														mainApp.setState({status: {mode: 1, message: "👍 Adding "+movie.title}});
 
-									// Download poster
-									img_dl({
-										url: tposter,
-										dest: path.join(app.getPath('userData'), 'posters'),
-										done: function(e, f, i) {
+														// Insert into db
+														movies_db.insert({
+															tmdb_id: tmovie['id'],
 
-											mainApp.setState({status: {mode: 1, message: "Downloading backdrop for "+movie.title}});
+															poster_path: tmovie['poster_path'],
+															backdrop_path: tmovie['backdrop_path'],
 
-											// Download backdrop
-											img_dl({
-												url: tbackdrop,
-												dest: path.join(app.getPath('userData'), 'backdrops'),
-												done: function(e, f, i) {
+															hash: OSObject['MovieHash'], 
+															fileName: fileList[hashList.indexOf(OSObject['MovieHash'])],
+															bytesize: bytesizeList[hashList.indexOf(OSObject['MovieHash'])],
 
-													// console.log(
-													// 	fileList[hashList.indexOf(OSObject['MovieHash'])],
-													// 	OSObject['MovieHash'], 
-													// 	bytesizeList[hashList.indexOf(OSObject['MovieHash'])]
-													// );
+															imdbid: "tt"+OSObject['MovieImdbID'],
+															imdbrating: +movie.imdbrating,
+															imdbvotes: +movie.imdbvotes.match(/\d/g).join(''),
 
-													mainApp.setState({status: {mode: 1, message: "👍 Adding "+movie.title}});
+															actors: toArray(movie.actors),
+															awards: movie.awards,
+															boxoffice: movie.boxoffice,
+															country: movie.country,
+															directors: toArray(movie.director),
+															dvd: movie.dvd,
+															genres: toArray(movie.genre),
+															language: movie.language.split(', '),
+															plot: movie.plot,
+															production: movie.production,
+															rated: movie.rated,
+															released: new Date(movie.released),
+															runtime: +movie.runtime.split(" min")[0],
+															title: movie.title,
+															type: "movie",
+															writers: toArray(movie.writer),
+															year: +movie.year,
 
-													// Insert into db
-													movies_db.insert({
-														tmdb_id: tmovie['id'],
+															// rotten: movie.ratings[1].value.split("%")[0],
+															metacritic: movie.metascore,
 
-														poster_path: tmovie['poster_path'],
-														backdrop_path: tmovie['backdrop_path'],
+														}, function (err, newDoc) {
 
-														hash: OSObject['MovieHash'], 
-														fileName: fileList[hashList.indexOf(OSObject['MovieHash'])],
-														bytesize: bytesizeList[hashList.indexOf(OSObject['MovieHash'])],
+															// console.log("Put in db 👍");
 
-														imdbid: "tt"+OSObject['MovieImdbID'],
-														imdbrating: +movie.imdbrating,
-														imdbvotes: +movie.imdbvotes.match(/\d/g).join(''),
+															// Update any new genres
+															newDoc.genres.forEach(function(genre){
+																if(mainApp.state.allgenres.indexOf(genre) == -1) {
+																	mainApp.state.allgenres.push(genre);
+																	mainApp.state.allgenres.sort();
+																	mainApp.setState({allgenres: mainApp.state.allgenres});
+																}
+															});
 
-														actors: toArray(movie.actors),
-														awards: movie.awards,
-														boxoffice: movie.boxoffice,
-														country: movie.country,
-														directors: toArray(movie.director),
-														dvd: movie.dvd,
-														genres: toArray(movie.genre),
-														language: movie.language.split(', '),
-														plot: movie.plot,
-														production: movie.production,
-														rated: movie.rated,
-														released: new Date(movie.released),
-														runtime: +movie.runtime.split(" min")[0],
-														title: movie.title,
-														type: "movie",
-														writers: toArray(movie.writer),
-														year: +movie.year,
+															mainApp.setState({status: {mode: 1, message: "👍 Added "+movie.title}});
 
-														rotten: movie.ratings[1].value.split("%")[0],
-														metacritic: movie.metascore,
-
-													}, function (err, newDoc) {
-
-														// console.log("Put in db 👍");
-
-														// Update any new genres
-														newDoc.genres.forEach(function(genre){
-															if(mainApp.state.allgenres.indexOf(genre) == -1) {
-																mainApp.state.allgenres.push(genre);
-																mainApp.state.allgenres.sort();
-																mainApp.setState({allgenres: mainApp.state.allgenres});
-															}
+															// Brag to the user
+															mainApp.handleChange({});
+															next();
 														});
-
-														mainApp.setState({status: {mode: 1, message: "👍 Added "+movie.title}});
-
-														// Brag to the user
-														mainApp.handleChange({});
-														next();
-													});
-												}
-											});
-										}
-									});
-								}).catch(console.error);	// Catching tmdb error
+													}
+												});
+											}
+										});
+									}).catch(console.error);	// Catching tmdb error
+								} // IF MOVIE
 
 							}).catch(console.error);		// Catching omdb error
 

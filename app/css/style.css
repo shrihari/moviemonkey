@@ -30,6 +30,13 @@ html, body {margin:0;padding:0;height:100%;background: #DDD;}
 .block { display: block; }
 .v-top { vertical-align: top; }
 .t-d-none, .t-d-none:hover, .t-d-none:focus, .t-d-none:active { text-decoration: none; }*/
+/*:not(input):not(textarea),
+:not(input):not(textarea)::after,
+:not(input):not(textarea)::before {
+    -webkit-user-select: none;
+    user-select: none;
+    cursor: default;
+}*/
 textarea:focus, input:focus, *:focus {
 	outline: 0;
 }
@@ -101,11 +108,16 @@ select:-internal-list-box, select:-internal-list-box option:checked {
 	height: 60px;
 }
 #searchbar {
-	font-size: 24px;
-	padding: 0 15px;
+	font-size: 20px;
+	padding: 0 15px 0 32px;
 	flex: 1;
 	background: transparent;
 	border: 0;
+	background: url(../img/search.svg) 10px center no-repeat;
+	background-size: 16px 16px;
+}
+#searchbar::-webkit-input-placeholder {
+	font-size: 16px;
 }
 #sort {
 	display: flex;
