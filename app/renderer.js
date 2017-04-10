@@ -153,7 +153,7 @@ var processFiles = function(files, mainApp) {
 
 						forEachAsync(movies, function(next, OSObject, index, array) {
 
-							if(OSObject['MovieKind'] != 'movie') next();
+							if(OSObject['MovieKind'] != 'movie') { next(); return; }
 
 							// Check if the movie exists. If yes, update the bigger bytesize file. If no, do the usual.
 
@@ -285,6 +285,9 @@ var processFiles = function(files, mainApp) {
 												});
 											}).catch(console.error);	// Catching tmdb error
 										} // IF MOVIE
+										else {
+											next();
+										}
 
 									}).catch(console.error);		// Catching omdb error
 
