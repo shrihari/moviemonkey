@@ -30,13 +30,12 @@ html, body {margin:0;padding:0;height:100%;background: #DDD;}
 .block { display: block; }
 .v-top { vertical-align: top; }
 .t-d-none, .t-d-none:hover, .t-d-none:focus, .t-d-none:active { text-decoration: none; }*/
-/*:not(input):not(textarea),
+:not(input):not(textarea),
 :not(input):not(textarea)::after,
 :not(input):not(textarea)::before {
     -webkit-user-select: none;
     user-select: none;
-    cursor: default;
-}*/
+}
 textarea:focus, input:focus, *:focus {
 	outline: 0;
 }
@@ -106,6 +105,10 @@ select:-internal-list-box, select:-internal-list-box option:checked {
 	display: flex;
 	border-bottom: 1px solid #DDD;
 	height: 60px;
+/*	height: 80px;
+	padding-top: 20px;
+	background: white url(../img/movie-monkey.svg) center 4px no-repeat;
+	background-size: 120px;*/
 }
 #searchbar {
 	font-size: 20px;

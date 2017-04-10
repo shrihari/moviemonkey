@@ -1,5 +1,6 @@
 
 renderer-bundle.js
+dist/*
 
 # Logs
 logs

@@ -83,10 +83,6 @@ export default class MovieDetails extends React.Component {
                 <div className="movie-directors-title">Directed by</div>
                 {directors}
               </div>
-              <div className="movie-writers">
-                <div className="movie-writers-title">Written by</div>
-                {writers}
-              </div>
             </div>
 
           </div>

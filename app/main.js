@@ -17,7 +17,7 @@ let mainWindow
 function createWindow () {
   // Create the browser window.
   // , titleBarStyle: 'hidden-inset'
-  mainWindow = new BrowserWindow({width: 1200, height: 800, titleBarStyle: 'hidden-inset'})
+  mainWindow = new BrowserWindow({title: "Movie Monkey", titleBarStyle: 'hidden-inset'})
   
   // and load the index.html of the app.
   mainWindow.loadURL(url.format({
@@ -29,7 +29,7 @@ function createWindow () {
   mainWindow.maximize()
 
   // Open the DevTools.
-  mainWindow.webContents.openDevTools()
+  // mainWindow.webContents.openDevTools()
 
   // Emitted when the window is closed.
   mainWindow.on('closed', function () {
