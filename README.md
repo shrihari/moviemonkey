@@ -7,7 +7,7 @@
 ## Roadmap for v1
 * Watch added folders for new movies
 * Allow user to manually add movies that were not identified automatically
-* Edit /Delete / Open Folder / Open IMDb options on movie details page
+* Edit / Delete / Open Folder / Open IMDb options on movie details page
 * Rotten tomatoes & Metacritic scores
 * Mark as Watched / Not watched
 
