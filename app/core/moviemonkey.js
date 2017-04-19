@@ -34,7 +34,7 @@ export default class MovieMonkey {
 		tmdb.configuration()
 		.then((res) => {
 			tmdb_config = res['images'];
-		});
+		}).catch(console.error);
 	}
 
 	insertIntoDB(hash, movie, tmovie, done) {
@@ -180,6 +180,31 @@ export default class MovieMonkey {
 			if(docs.length > 0) {
 
 				// Add the bigger file
+				let movie = docs[0];
+				let bs = t.bytesizeList[t.hashList.indexOf(hash)];
+
+				console.log("Movie already exists, update db", movie.title);
+				console.log(movie.bytesize, bs);
+
+				if(bs > movie.bytesize)
+				{
+					t.movies_db.update(
+						{imdbid: imdbid},
+						{$set: 
+							{
+								hash: hash, 
+								fileName: t.fileList[t.hashList.indexOf(hash)],
+								bytesize: t.bytesizeList[t.hashList.indexOf(hash)]
+							}
+						},
+						{},
+						function(e, n) {
+							console.log("updated");
+		        			done();
+						});
+				}
+				else
+					done();
 
 			} else {
 
