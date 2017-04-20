@@ -414,10 +414,10 @@ select:-internal-list-box, select:-internal-list-box option:checked {
 	right: 0;
 	bottom: 0;
 	left: 150px;
-	height: 40px;
+	height: 50px;
 	font-size: 12px;
-	line-height: 40px;
-	text-align: center;
+	line-height: 50px;
+	padding: 0 15px;
 	border-top: 1px solid #DDD;
 }
 #statusbar.hide {

@@ -101,7 +101,7 @@ class App extends React.Component {
 	onDrop(e) {
 	    e.preventDefault();
 
-		this.setState({status: {mode: 1, message: "Scanning your files..."}});
+		this.setState({status: {mode: 1, message: "🔍 Scanning your files..."}});
 
 		let fileList = [];
 

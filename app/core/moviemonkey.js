@@ -41,7 +41,7 @@ export default class MovieMonkey {
 
 		let t = this;
 
-		t.app.setState({status: {mode: 1, message: "👍 Adding "+movie.title}});
+		t.app.setState({status: {mode: 1, message: "🎬 "+movie.title+" - Adding..."}});
 
 		t.movies_db.insert({
 			tmdb_id: tmovie['id'],
@@ -88,7 +88,7 @@ export default class MovieMonkey {
 				}
 			});
 
-			t.app.setState({status: {mode: 1, message: "👍 Added "+movie.title}});
+		t.app.setState({status: {mode: 1, message: "👍 "+movie.title+" - Adding..."}});
 
 			// Brag to the user
 			t.app.handleChange({});
@@ -102,8 +102,9 @@ export default class MovieMonkey {
 
 		let t = this;
 
-		this.app.setState({status: {mode: 1, message: "Downloading backdrop for "+movie.title}});
+		t.app.setState({status: {mode: 1, message: "🎬 "+movie.title+" - Downloading backdrop..."}});
 
+		// Get backdrop url
 		let tbackdrop = tmdb_config['base_url'] + "original" + tmovie['backdrop_path'];
 
 		img_dl({
@@ -121,7 +122,9 @@ export default class MovieMonkey {
 
 		let t = this;
 
-		// Get poster and backdrop urls
+		t.app.setState({status: {mode: 1, message: "🎬 "+movie.title+" - Downloading poster..."}});
+
+		// Get poster url
 		let tposter = tmdb_config['base_url'] + "w500" + tmovie['poster_path'];
 
 		img_dl({
@@ -144,8 +147,6 @@ export default class MovieMonkey {
 
 			let tmovie = res.movie_results[0];
 
-			t.app.setState({status: {mode: 1, message: "Downloading poster for "+movie.title}});
-
 			t.downloadPoster(hash, movie, tmovie, done);
 
 		}).catch(console.error);
@@ -160,7 +161,7 @@ export default class MovieMonkey {
 
 			if(movie.type == 'movie') {
 
-				t.app.setState({status: {mode: 1, message: "Fetching poster and backdrop of "+movie.title}});
+				t.app.setState({status: {mode: 1, message: "🎬 "+movie.title+" - Fetching details..."}});
 
 				t.getTMDbDetails(hash, movie, done);
 
@@ -222,7 +223,7 @@ export default class MovieMonkey {
 
 			if(OSObject['MovieKind'] != 'movie') { next(); return; }
 
-			t.app.setState({status: {mode: 1, message: "Processing "+OSObject['MovieName']}});
+			t.app.setState({status: {mode: 1, message: "🎬 "+OSObject['MovieName']+" - Checking"}});
 
 			t.checkInDB(OSObject['MovieHash'], "tt"+OSObject['MovieImdbID'], next);
 
@@ -247,7 +248,7 @@ export default class MovieMonkey {
 			hlists.push(h.splice(0, 200));
 		}
 
-		this.app.setState({status: {mode: 1, message: "Identifying your movies..."}});
+		this.app.setState({status: {mode: 1, message: "🎞 Identifying your movies..."}});
 
 		forEachAsync(hlists, function(next, hlist, index, array) {
 
@@ -281,7 +282,7 @@ export default class MovieMonkey {
 
 		let t = this;
 
-		this.app.setState({status: {mode: 1, message: "Contacting OpenSubtitles.org server..."}});
+		this.app.setState({status: {mode: 1, message: "🕊 Contacting OpenSubtitles.org server..."}});
 
 		// Login to OSDb
 		OpenSubtitles.api.LogIn("", "", "en", "Movie Monkey v1").then((result) => {
@@ -293,7 +294,7 @@ export default class MovieMonkey {
 	}
 
 	processFiles(fl) {
-		let t = this;
+		let t = this, count = 0;
 		this.fileList = fl.slice();
 
 		forEachAsync(fl, function(next, fileName, index, array) {
@@ -302,7 +303,7 @@ export default class MovieMonkey {
 			t.movies_db.find({fileName: fileName}).exec(function(err, docs) {
 			  	if(docs.length == 0)
 			  	{
-			  		t.app.setState({status: {mode: 1, message: "Processing "+fileName}});
+			  		t.app.setState({status: {mode: 1, message: "✨ Processing "+fileName}});
 
 			  		libhash.computeHash( fileName ).then(function(infos){
 			  			t.hashList.push(infos['moviehash']);
