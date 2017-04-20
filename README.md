@@ -10,6 +10,7 @@
 * Edit / Delete / Open Folder / Open IMDb options on movie details page
 * Rotten tomatoes & Metacritic scores
 * Mark as Watched / Not watched
+* Autoupdate
 
 ## To Install
 
