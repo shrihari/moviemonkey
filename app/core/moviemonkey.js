@@ -9,6 +9,7 @@ const omdbapi = require('omdbapi');
 const tmdb = new (require('tmdbapi'))({ apiv3: '5d357768816b32bc2a1f43a06b62cf4c' });
 
 const img_dl = require('image-downloader');
+const filewalker = require('filewalker');
 
 var libhash = require('opensubtitles-api/lib/hash.js');
 var OS = require('opensubtitles-api');
@@ -21,20 +22,34 @@ var OpenSubtitles = new OS({
 
 var tmdb_config = {};
 
+var isVideo = function(fileName) {
+
+	let video = ['avi', 'divx', 'flv','mkv', 'mov', 'mp4', 'mpeg', 'mpg', 'swf', 'wmv', 'x264', 'xvid'];
+
+    let x = fileName.split('.');
+    let ext = x[x.length - 1];
+
+    if (video.indexOf(ext) > -1)
+    	return true;
+    else 
+    	return false;
+}
 // Swap this for formatList
 var toArray = function(o) { return Object.keys(o).map(k => o[k]) }
 
 export default class MovieMonkey {
 	constructor(a, db) {
 		this.app = a;
-		this.movies_db = db;
+		this.db = db;
 		this.hashList = [], this.fileList = [], this.bytesizeList = [];
-		this.movies = [], this.unidentified = [];
+		this.movies = [], this.episodes = [], this.unidentified = [];
 
 		tmdb.configuration()
 		.then((res) => {
 			tmdb_config = res['images'];
 		}).catch(console.error);
+		
+		// this.watch();
 	}
 
 	insertIntoDB(hash, movie, tmovie, done) {
@@ -43,7 +58,7 @@ export default class MovieMonkey {
 
 		t.app.setState({status: {mode: 1, message: "🎬 "+movie.title+" - Adding..."}});
 
-		t.movies_db.insert({
+		t.db.movies.insert({
 			tmdb_id: tmovie['id'],
 
 			poster_path: tmovie['poster_path'],
@@ -88,7 +103,7 @@ export default class MovieMonkey {
 				}
 			});
 
-		t.app.setState({status: {mode: 1, message: "👍 "+movie.title+" - Adding..."}});
+			t.app.setState({status: {mode: 1, message: "👍 "+movie.title+" - Adding..."}});
 
 			// Brag to the user
 			t.app.handleChange({});
@@ -147,7 +162,8 @@ export default class MovieMonkey {
 
 			let tmovie = res.movie_results[0];
 
-			t.downloadPoster(hash, movie, tmovie, done);
+			// t.downloadPoster(hash, movie, tmovie, done);
+			t.insertIntoDB(hash, movie, tmovie, done);
 
 		}).catch(console.error);
 
@@ -176,7 +192,7 @@ export default class MovieMonkey {
 
 		let t = this;
 
-		this.movies_db.find({imdbid: imdbid}).exec(function(err, docs){
+		this.db.movies.find({imdbid: imdbid}).exec(function(err, docs){
 
 			if(docs.length > 0) {
 
@@ -184,12 +200,11 @@ export default class MovieMonkey {
 				let movie = docs[0];
 				let bs = t.bytesizeList[t.hashList.indexOf(hash)];
 
-				console.log("Movie already exists, update db", movie.title);
-				console.log(movie.bytesize, bs);
+				// Add the smaller file to files db
 
 				if(bs > movie.bytesize)
 				{
-					t.movies_db.update(
+					t.db.movies.update(
 						{imdbid: imdbid},
 						{$set: 
 							{
@@ -200,12 +215,12 @@ export default class MovieMonkey {
 						},
 						{},
 						function(e, n) {
-							console.log("updated");
 		        			done();
 						});
 				}
-				else
+				else {
 					done();
+				}
 
 			} else {
 
@@ -223,17 +238,17 @@ export default class MovieMonkey {
 
 			if(OSObject['MovieKind'] != 'movie') { next(); return; }
 
-			t.app.setState({status: {mode: 1, message: "🎬 "+OSObject['MovieName']+" - Checking"}});
+			t.app.setState({status: {mode: 1, message: "🎬 "+OSObject['MovieName']+" - Checking..."}});
 
 			t.checkInDB(OSObject['MovieHash'], "tt"+OSObject['MovieImdbID'], next);
 
 		}).then(function() {
 
 			t.app.setState({status: {mode: 0, message: ""}});
-			console.log("Phew everything is done");
+			// console.log("Phew everything is done");
 
 			t.unidentified.forEach(function(movie_hash){
-				console.log(movie_hash, t.fileList[t.hashList.indexOf(movie_hash)]);
+				// console.log(movie_hash, t.fileList[t.hashList.indexOf(movie_hash)]);
 			});
 
 			// addUnidentified()
@@ -254,14 +269,18 @@ export default class MovieMonkey {
 
 			OpenSubtitles.api.CheckMovieHash(token, hlist).then( (movies_result) => {
 
-				console.log(movies_result);
-
 				let r = movies_result['data'];
 
 				// Convert ugly object into pretty array
 				for (var key in r) {			// if (r.hasOwnProperty(key))
 					if (r[key].hasOwnProperty('MovieHash')) {
-						t.movies.push(r[key]);
+						if (r[key]['MovieKind'] == 'movie') {
+							t.movies.push(r[key]);
+						} else if (r[key]['MovieKind'] == 'episode') {
+							t.episodes.push(r[key]);
+						} else {
+							console.log(r[key]);
+						}
 					}
 					else {
 						t.unidentified.push(key);
@@ -300,14 +319,23 @@ export default class MovieMonkey {
 		forEachAsync(fl, function(next, fileName, index, array) {
 
 			// Calculate Hash and Bytesize of video files
-			t.movies_db.find({fileName: fileName}).exec(function(err, docs) {
+			t.db.movies.find({fileName: fileName}).exec(function(err, docs) {
 			  	if(docs.length == 0)
 			  	{
 			  		t.app.setState({status: {mode: 1, message: "✨ Processing "+fileName}});
 
 			  		libhash.computeHash( fileName ).then(function(infos){
-			  			t.hashList.push(infos['moviehash']);
-			  			t.bytesizeList.push(infos['moviebytesize']);
+
+			  			if (t.hashList.indexOf(infos['moviehash']) > -1) {
+			  				// console.log("This hash", infos['moviehash']," exists", fileName);
+			  				// Insert into files db
+			  				// {filename, type: duplicate, hash}
+			  			}
+			  			else {	
+				  			t.hashList.push(infos['moviehash']);
+				  			t.bytesizeList.push(infos['moviebytesize']);
+			  			}
+
 			  			next();
 			  		});
 			  	}
@@ -321,6 +349,39 @@ export default class MovieMonkey {
 		}).then(function(){
 			// Opensubtitles Login
 			t.osLogin();
+		});
+	}
+
+	watch() {
+
+		let t = this;
+
+		t.db.watchfolders.find({}).exec(function(e, docs){
+
+			let fl = [];
+
+			// forEachAsync(docs, function(next, watchfolder, index, array){
+
+			// 	filewalker(watchfolder.path)
+			// 		.on('file', function(p, s) {
+			// 			if( isVideo(p) )
+			// 		    	fl.push( path.join(watchfolder.path, p) );
+			// 	    })
+			// 		.on('error', function(err) {
+			// 			console.error(err);
+			// 		})
+			// 		.on('done', function() {
+			// 			next();
+			// 		})
+			// 		.walk();
+
+
+			// }).then(function() {
+
+			// 	t.processFiles(fl);
+
+			// });
+
 		});
 	}
 }

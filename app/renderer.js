@@ -26,7 +26,7 @@ const mkdirp = require('mkdirp');
 const filewalker = require('filewalker');
 var forEachAsync = require('forEachAsync').forEachAsync;
 
-var movies_db, MM;
+var db = {}, MM;
 
 var toArray = function(o) { return Object.keys(o).map(k => o[k]) }
 
@@ -75,17 +75,18 @@ class App extends React.Component {
 		mkdirp( path.join(app.getPath('userData'), 'backdrops') );
 
 		// TO DO: Handle genres better with a genres.db
-		movies_db = new Datastore({ filename: path.join(app.getPath('userData'), 'data/movies.json'), autoload: true });
+		db.movies = new Datastore({ filename: path.join(app.getPath('userData'), 'data/movies.json'), autoload: true });
+		db.watchfolders = new Datastore({ filename: path.join(app.getPath('userData'), 'data/watchfolders.json'), autoload: true });
 
-		MM = new MovieMonkey(this, movies_db);
+		MM = new MovieMonkey(this, db);
 
-	  	movies_db.find({}).sort({ title: 1 }).exec(function (err, docs) {
+	  	db.movies.find({}).sort({ title: 1 }).exec(function (err, docs) {
 	  		t.setState({data: docs});
 	  	});
 
 	  	this.state.allgenres.forEach(function(item, index){
 	  		if(item != 'All')
-			  	movies_db.find({genres: { $elemMatch: item } }).exec(function (err, docs) {
+			  	db.movies.find({genres: { $elemMatch: item } }).exec(function (err, docs) {
 			  		if(docs.length == 0) {
 			  			t.state.allgenres.splice(t.state.allgenres.indexOf(item), 1);
 			  			t.setState({allgenres: t.state.allgenres});
@@ -113,10 +114,24 @@ class App extends React.Component {
 			}
 			else if ( fs.lstatSync(f.path).isDirectory() ) {
 
+				// Add to watchfolders, and remove subdirectories from being watched
+				db.watchfolders.update(
+					{path: f.path},
+					{path: f.path},
+					{upsert: true},
+					function(e, n, u) {});
+
 				filewalker(f.path)
 					.on('file', function(p, s) {
 						if( isVideo(p) )
 					    	fileList.push( path.join(f.path, p) );
+				    })
+				    .on('dir', function(p) {
+
+						db.watchfolders.remove({ 
+							path: path.join(f.path, p) }, 
+							{}, 
+							function (e, n) {});
 				    })
 					.on('error', function(err) {
 						console.error(err);
@@ -181,7 +196,7 @@ class App extends React.Component {
 	    let sorting = {}
 	    sorting[t.state.sortby[0]] = t.state.sortby[1];
 
-		movies_db.find({$and: [genreQuery, searchQuery]}).sort(sorting).exec(function (err, docs) {
+		db.movies.find({$and: [genreQuery, searchQuery]}).sort(sorting).exec(function (err, docs) {
 			t.setState({data: docs});
 		});
 	}
@@ -189,7 +204,7 @@ class App extends React.Component {
 	// Hide sidebar
 	hideSidebar(e) {
 	    var t = this;
-		movies_db.find({imdbid: e.currentTarget.id}).exec(function (err, docs) {
+		db.movies.find({imdbid: e.currentTarget.id}).exec(function (err, docs) {
 			t.setState({movie: docs[0], showmoviedetails: true});
 		});
 	}
