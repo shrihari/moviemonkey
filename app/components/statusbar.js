@@ -13,9 +13,11 @@ export default class Statusbar extends React.Component {
     var mode = "";
     if (this.props.status.mode == 0)
       mode = "hide";
+    else if(this.props.status.mode == 2)
+      mode = "click"
 
     return (
-	    <div id="statusbar" className={mode}>
+	    <div id="statusbar" className={mode} onClick={this.props.onClick}>
         {this.props.status.message}
 	    </div>
     );

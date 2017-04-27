@@ -18,9 +18,11 @@ import MovieMonkey from './core/moviemonkey.js'
 
 const remote = require('electron').remote;
 const app = remote.app;
+const BrowserWindow = remote.BrowserWindow;
 
 const fs = require('fs');
 const path = require('path');
+const url = require('url');
 
 const mkdirp = require('mkdirp');
 const filewalker = require('filewalker');
@@ -54,6 +56,7 @@ class App extends React.Component {
 	    this.onDrop = this.onDrop.bind(this);
 	    this.hideSidebar = this.hideSidebar.bind(this);
 	    this.hideMovieDetails = this.hideMovieDetails.bind(this);
+	    this.openUnidentifiedWindow = this.openUnidentifiedWindow.bind(this);
 
 		this.state = {
 			allgenres: ['Action', 'Adventure', 'Animation', 'Biography', 'Comedy', 'Crime', 'Documentary', 'Drama', 'Family', 'Fantasy', 'Film-Noir', 'History', 'Horror', 'Music', 'Musical', 'Mystery', 'Romance', 'Sci-Fi', 'Sport', 'Thriller', 'War', 'Western'],
@@ -64,8 +67,8 @@ class App extends React.Component {
     		showmoviedetails: false,
     		movie: {},
     		status: {
-    			mode: 0,
-    			message: ""
+    			mode: 2,
+    			message: "Something"
     		}
     	};
 
@@ -77,11 +80,13 @@ class App extends React.Component {
 		// TO DO: Handle genres better with a genres.db
 		db.movies = new Datastore({ filename: path.join(app.getPath('userData'), 'data/movies.json'), autoload: true });
 		db.watchfolders = new Datastore({ filename: path.join(app.getPath('userData'), 'data/watchfolders.json'), autoload: true });
+		db.files = new Datastore({ filename: path.join(app.getPath('userData'), 'data/files.json'), timestampData: true, autoload: true });
 
 		MM = new MovieMonkey(this, db);
 
 	  	db.movies.find({}).sort({ title: 1 }).exec(function (err, docs) {
 	  		t.setState({data: docs});
+	  		console.log(docs);
 	  	});
 
 	  	this.state.allgenres.forEach(function(item, index){
@@ -93,6 +98,8 @@ class App extends React.Component {
 			  		}
 			  	});
 	  	});
+
+	  	// MM.watch();
 	}
 
 	onDragOver(e) {
@@ -214,6 +221,23 @@ class App extends React.Component {
 	    this.setState({showmoviedetails: false});
 	}
 
+	openUnidentifiedWindow(e) {
+		if (this.state.status.mode == 2) {
+			let unWindow = new BrowserWindow({title: "Movie Monkey - Unidentified Files"});
+
+			unWindow.loadURL(url.format({
+				pathname: path.join(app.getAppPath(), 'unidentified.html'),
+				protocol: 'file:',
+				slashes: true
+			}));
+
+			unWindow.once('ready-to-show', () => {
+				unWindow.show()
+			});
+		}
+		this.setState({status: {mode: 0, message: ""}});
+	}
+
 	render() {
 		return (
 			<div id="wrap" onDragOver={this.onDragOver} onDrop={this.onDrop} >
@@ -232,7 +256,7 @@ class App extends React.Component {
 				  	onSortChange={this.sortChange}
 				  	 />
 				  <MoviesPanel data={this.state.data} onMovieSelect={this.hideSidebar} />
-				  <Statusbar status={this.state.status} />
+				  <Statusbar status={this.state.status} onClick={this.openUnidentifiedWindow} />
 				</div>
 				<div id="movie-details" className={(this.state.showmoviedetails) ? '' : 'hide'}>
 					<MovieDetails movie={this.state.movie} onHideMovieDetails={this.hideMovieDetails} />

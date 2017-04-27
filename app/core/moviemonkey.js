@@ -43,20 +43,24 @@ export default class MovieMonkey {
 		this.db = db;
 		this.hashList = [], this.fileList = [], this.bytesizeList = [];
 		this.movies = [], this.episodes = [], this.unidentified = [];
+		this.showStatus = true;
 
 		tmdb.configuration()
 		.then((res) => {
 			tmdb_config = res['images'];
 		}).catch(console.error);
 		
-		// this.watch();
+	  	this.db.files.find({}).exec(function (err, docs) {
+	  		console.log(docs);
+	  	});
 	}
 
 	insertIntoDB(hash, movie, tmovie, done) {
 
 		let t = this;
 
-		t.app.setState({status: {mode: 1, message: "🎬 "+movie.title+" - Adding..."}});
+		if(t.showStatus)
+			t.app.setState({status: {mode: 1, message: "🎬 "+movie.title+" - Adding..."}});
 
 		t.db.movies.insert({
 			tmdb_id: tmovie['id'],
@@ -90,7 +94,7 @@ export default class MovieMonkey {
 			writers: (movie.writer) ? toArray(movie.writer) : null,
 			year: +movie.year,
 
-			// rotten: movie.ratings[1].value.split("%")[0],
+			ratings: movie.ratings,
 			metacritic: movie.metascore,
 		}, function(err, newDoc) {
 
@@ -103,21 +107,29 @@ export default class MovieMonkey {
 				}
 			});
 
-			t.app.setState({status: {mode: 1, message: "👍 "+movie.title+" - Adding..."}});
+			t.db.files.insert({
+				path: t.fileList[t.hashList.indexOf(hash)],
+				type: "movie",
+				hash: hash
+			}, function(e, newDoc) {
 
-			// Brag to the user
-			t.app.handleChange({});
-			done();
+				if(t.showStatus)
+					t.app.setState({status: {mode: 1, message: "👍 "+movie.title+" - Adding..."}});
 
+				// Brag to the user
+				t.app.handleChange({});
+				done();
+
+			});
 		});
-
 	}
 
 	downloadBackdrop(hash, movie, tmovie, done) {
 
 		let t = this;
 
-		t.app.setState({status: {mode: 1, message: "🎬 "+movie.title+" - Downloading backdrop..."}});
+		if(t.showStatus)
+			t.app.setState({status: {mode: 1, message: "🎬 "+movie.title+" - Downloading backdrop..."}});
 
 		// Get backdrop url
 		let tbackdrop = tmdb_config['base_url'] + "original" + tmovie['backdrop_path'];
@@ -137,7 +149,8 @@ export default class MovieMonkey {
 
 		let t = this;
 
-		t.app.setState({status: {mode: 1, message: "🎬 "+movie.title+" - Downloading poster..."}});
+		if(t.showStatus)
+			t.app.setState({status: {mode: 1, message: "🎬 "+movie.title+" - Downloading poster..."}});
 
 		// Get poster url
 		let tposter = tmdb_config['base_url'] + "w500" + tmovie['poster_path'];
@@ -161,6 +174,7 @@ export default class MovieMonkey {
 		tmdb.find({external_id: movie.imdbid, external_source: 'imdb_id' }).then(function(res) {
 
 			let tmovie = res.movie_results[0];
+			// or tv_episode_results
 
 			// t.downloadPoster(hash, movie, tmovie, done);
 			t.insertIntoDB(hash, movie, tmovie, done);
@@ -177,7 +191,8 @@ export default class MovieMonkey {
 
 			if(movie.type == 'movie') {
 
-				t.app.setState({status: {mode: 1, message: "🎬 "+movie.title+" - Fetching details..."}});
+				if(t.showStatus)
+					t.app.setState({status: {mode: 1, message: "🎬 "+movie.title+" - Fetching details..."}});
 
 				t.getTMDbDetails(hash, movie, done);
 
@@ -215,13 +230,25 @@ export default class MovieMonkey {
 						},
 						{},
 						function(e, n) {
-		        			done();
+							t.db.files.insert({
+								path: movie.fileName,
+								type: "duplicate",
+								hash: movie.hash
+							}, function(e, newDoc) {
+								done();
+							});
 						});
 				}
 				else {
-					done();
-				}
 
+					t.db.files.insert({
+						path: t.fileList[t.hashList.indexOf(hash)],
+						type: "duplicate",
+						hash: hash
+					}, function(e, newDoc) {
+						done();
+					});
+				}
 			} else {
 
 				t.getOMDbDetails(hash, imdbid, done); 
@@ -231,6 +258,44 @@ export default class MovieMonkey {
 		});
 	}
 
+	addUnidentified() {
+		let t = this;
+
+		forEachAsync(t.unidentified, function(next, movie_hash, index, array) {
+
+			t.db.files.insert({
+				path: t.fileList[t.hashList.indexOf(movie_hash)],
+				type: "unidentified",
+				hash: movie_hash
+			}, function(e, newDoc) {
+				next();
+			});
+		}).then(function(){
+			if(t.unidentified.length > 0)
+				t.app.setState({status: {mode: 2, message: "All done. Soem files could not be identified automatically. Click here to identify them manually."}})
+		});
+	}
+
+	addMovie(title, imdbid, hash) {
+		let t = this;
+
+		omdbapi.get({title: title, id: imdbid}).then(function(movie) {
+
+			if(movie.type == 'movie') {
+
+				console.log(movie, hash)
+				// if(t.showStatus)
+					// t.app.setState({status: {mode: 1, message: "🎬 "+movie.title+" - Fetching details..."}});
+
+				// t.getTMDbDetails(hash, movie, done);
+
+			} else {
+				done();
+			}
+
+		}).catch(console.error);
+	}
+
 	addMovies() {
 		let t = this;
 
@@ -238,20 +303,16 @@ export default class MovieMonkey {
 
 			if(OSObject['MovieKind'] != 'movie') { next(); return; }
 
-			t.app.setState({status: {mode: 1, message: "🎬 "+OSObject['MovieName']+" - Checking..."}});
+			if(t.showStatus)
+				t.app.setState({status: {mode: 1, message: "🎬 "+OSObject['MovieName']+" - Checking..."}});
 
 			t.checkInDB(OSObject['MovieHash'], "tt"+OSObject['MovieImdbID'], next);
 
 		}).then(function() {
 
 			t.app.setState({status: {mode: 0, message: ""}});
-			// console.log("Phew everything is done");
 
-			t.unidentified.forEach(function(movie_hash){
-				// console.log(movie_hash, t.fileList[t.hashList.indexOf(movie_hash)]);
-			});
-
-			// addUnidentified()
+			t.addUnidentified()
 
 		});
 	}
@@ -263,9 +324,12 @@ export default class MovieMonkey {
 			hlists.push(h.splice(0, 200));
 		}
 
-		this.app.setState({status: {mode: 1, message: "🎞 Identifying your movies..."}});
+		if(t.showStatus)
+			this.app.setState({status: {mode: 1, message: "🎞 Identifying your movies..."}});
 
 		forEachAsync(hlists, function(next, hlist, index, array) {
+
+			console.log(hlist);
 
 			OpenSubtitles.api.CheckMovieHash(token, hlist).then( (movies_result) => {
 
@@ -301,7 +365,8 @@ export default class MovieMonkey {
 
 		let t = this;
 
-		this.app.setState({status: {mode: 1, message: "🕊 Contacting OpenSubtitles.org server..."}});
+		if(t.showStatus)
+			this.app.setState({status: {mode: 1, message: "🕊 Contacting OpenSubtitles.org server..."}});
 
 		// Login to OSDb
 		OpenSubtitles.api.LogIn("", "", "en", "Movie Monkey v1").then((result) => {
@@ -315,28 +380,39 @@ export default class MovieMonkey {
 	processFiles(fl) {
 		let t = this, count = 0;
 		this.fileList = fl.slice();
+		this.hashList = [];
+		this.bytesizeList = [];
+		
+		this.movies = [], this.episodes = [], this.unidentified = [];
 
 		forEachAsync(fl, function(next, fileName, index, array) {
 
 			// Calculate Hash and Bytesize of video files
-			t.db.movies.find({fileName: fileName}).exec(function(err, docs) {
+			t.db.files.find({path: fileName}).exec(function(err, docs) {
 			  	if(docs.length == 0)
 			  	{
-			  		t.app.setState({status: {mode: 1, message: "✨ Processing "+fileName}});
+			  		if(t.showStatus)
+				  		t.app.setState({status: {mode: 1, message: "✨ Processing "+fileName}});
 
 			  		libhash.computeHash( fileName ).then(function(infos){
 
 			  			if (t.hashList.indexOf(infos['moviehash']) > -1) {
-			  				// console.log("This hash", infos['moviehash']," exists", fileName);
-			  				// Insert into files db
-			  				// {filename, type: duplicate, hash}
+
+			  				t.db.files.insert({
+			  					path: fileName,
+			  					type: "duplicate",
+			  					hash: infos['moviehash']
+			  				}, function(e, newDoc) {
+						  		t.fileList.splice(t.fileList.indexOf(fileName), 1);
+			  					next();
+			  				});
+
 			  			}
 			  			else {	
 				  			t.hashList.push(infos['moviehash']);
 				  			t.bytesizeList.push(infos['moviebytesize']);
+				  			next();
 			  			}
-
-			  			next();
 			  		});
 			  	}
 			  	else
@@ -348,7 +424,10 @@ export default class MovieMonkey {
 
 		}).then(function(){
 			// Opensubtitles Login
-			t.osLogin();
+			if(t.fileList.length > 0)
+				t.osLogin();
+			else
+				t.app.setState({status: {mode: 0, message: ""}});
 		});
 	}
 
@@ -360,27 +439,27 @@ export default class MovieMonkey {
 
 			let fl = [];
 
-			// forEachAsync(docs, function(next, watchfolder, index, array){
+			forEachAsync(docs, function(next, watchfolder, index, array){
 
-			// 	filewalker(watchfolder.path)
-			// 		.on('file', function(p, s) {
-			// 			if( isVideo(p) )
-			// 		    	fl.push( path.join(watchfolder.path, p) );
-			// 	    })
-			// 		.on('error', function(err) {
-			// 			console.error(err);
-			// 		})
-			// 		.on('done', function() {
-			// 			next();
-			// 		})
-			// 		.walk();
+				filewalker(watchfolder.path)
+					.on('file', function(p, s) {
+						if( isVideo(p) )
+					    	fl.push( path.join(watchfolder.path, p) );
+				    })
+					.on('error', function(err) {
+						console.error(err);
+					})
+					.on('done', function() {
+						next();
+					})
+					.walk();
 
 
-			// }).then(function() {
+			}).then(function() {
 
-			// 	t.processFiles(fl);
+				t.processFiles(fl);
 
-			// });
+			});
 
 		});
 	}

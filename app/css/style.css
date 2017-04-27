@@ -423,3 +423,118 @@ select:-internal-list-box, select:-internal-list-box option:checked {
 #statusbar.hide {
 	display: none;
 }
+#statusbar.click {
+	background: #FFE24C;
+	cursor: pointer;
+}
+
+#statusbar.click:hover {
+	background: #F3D648;
+	cursor: pointer;
+}
+
+#unidentified { background: white; }
+#unidentified-wrapper {
+	background: white;
+	padding: 50px;
+}
+
+#unfiles-desc {
+	color: #AAA;
+	text-align: center;
+	font-size: 12px;
+	padding-bottom: 10px;
+	margin-bottom: 10px;
+	border-bottom: 1px solid #EEE;
+}
+
+.unfile {
+	cursor: pointer;
+	margin-bottom: 5px;
+	border-radius: 5px;
+
+	display: flex;
+	flex-direction: column;
+}
+.unfile:hover {
+	cursor: pointer;
+	background: #FAFAFA;
+}
+.unfile-info {
+	display: flex;
+	align-items: center;	
+	padding: 10px 10px;
+	border: 2px solid transparent;
+	border-radius: 5px 5px 0 0;
+}
+.unfile-path {
+	margin-left: 10px;
+}
+.unfile-folder {
+	color: #aaa;
+	font-size: 12px;
+}
+/*.unfile-folder:hover {
+	text-decoration: underline;
+}*/
+
+.unfile-actions {
+	display: flex;
+	opacity: 0.5;
+	transition: all .2s;
+}
+.unfile:hover .unfile-actions {
+	opacity: 1;
+}
+.unfile-add {
+	width: 26px;
+	height: 26px;
+	background: url(../img/add.svg) no-repeat center center;
+	background-size: 24px;
+	cursor: pointer;
+	margin: 0 5px;
+}
+.unfile-add:hover {
+	background-image: url(../img/add-hover.svg);
+	cursor: pointer;
+}
+.unfile-play {
+	width: 26px;
+	height: 26px;
+	background: url(../img/unfile-play.svg) no-repeat center center;
+	background-size: 24px;
+	cursor: pointer;
+	margin: 0 2px;
+}
+.unfile-play:hover {
+	background-image: url(../img/unfile-play-hover.svg);
+	cursor: pointer;
+}
+
+.unfile-add-form {
+	display: none;
+	background: #FFE24C;
+}
+.unfile-add-form input {
+	color: #333;
+	font-size: 20px;
+	padding: 0 15px;
+	flex: 1;
+	background: transparent;
+	border: 0;
+}
+.unfile-add-form input::-webkit-input-placeholder {
+	color: #333;
+	opacity: .3;
+	font-size: 16px;
+}
+
+
+.unfile.add .unfile-info {
+	border: 2px solid #FFE24C;
+}
+.unfile.add .unfile-add-form {
+	display: flex;
+	padding: 10px;
+	border-radius: 0 0 5px 5px;
+}
