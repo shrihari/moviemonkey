@@ -1,6 +1,6 @@
 {
   "name": "movie-monkey",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "A clean and simple, open source movie manager.",
   "scripts": {
       "postinstall": "install-app-deps",
@@ -13,7 +13,7 @@
       "electron-prebuilt": "~1.2.X"
   },
   "build": {
-      "appId": "hr.creaticon.eatodo",
-      "app-category-type": "public.app-category.productivity"
+      "appId": "com.moviemonkey",
+      "app-category-type": "public.app-category.entertainment"
   }
 }

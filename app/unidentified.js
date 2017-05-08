@@ -13,12 +13,14 @@ const app = remote.app;
 
 const path = require('path');
 
-var db = {}, MM;
+var db = {};
 
 class Unidentified extends React.Component {
 
 	constructor(props) {
 		super(props);
+		this.addedMovie = this.addedMovie.bind(this);
+
 		let t = this;
 
 		// TO DO: Handle genres better with a genres.db
@@ -26,26 +28,36 @@ class Unidentified extends React.Component {
 		db.watchfolders = new Datastore({ filename: path.join(app.getPath('userData'), 'data/watchfolders.json'), autoload: true });
 		db.files = new Datastore({ filename: path.join(app.getPath('userData'), 'data/files.json'), timestampData: true, autoload: true });
 
-		MM = new MovieMonkey(this, db);
-
 		this.state = {
 			unFiles: []
 		};
 
-		// SORT THIS BY DATE
 	  	db.files.find({type: "unidentified"}).sort({ createdAt: -1 }).exec(function (err, docs) {
+	  		let uf = []
 	  		docs.forEach((unFile) => {
-				let uf = t.state.unFiles.slice();    
-				uf.push(unFile);   
-				t.setState({unFiles: uf})
+				uf.push(unFile);
 	  		});
+			t.setState({unFiles: uf});
+	  	});
+	}
+
+	addedMovie() {
+		let t = this;
+
+	  	db.files.find({type: "unidentified"}).sort({ createdAt: -1 }).exec(function (err, docs) {
+	  		let uf = []
+	  		docs.forEach((unFile) => {
+				uf.push(unFile);
+	  		});
+			t.setState({unFiles: uf});
 	  	});
 	}
 
 	render() {
+		let t = this;
 	    var unFiles = this.state.unFiles.map(function(unFile) {
 	      return (
-			    <UnFile data={unFile} key={unFile._id} onAdd={MM.addMovie}/>
+			    <UnFile data={unFile} key={unFile._id} db={db} onAdded={t.addedMovie}/>
 	      );
 	    });
 

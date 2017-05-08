@@ -52,6 +52,7 @@ class App extends React.Component {
 	    this.genreChange = this.genreChange.bind(this);
 	    this.searchChange = this.searchChange.bind(this);
 	    this.sortChange = this.sortChange.bind(this);
+	    this.updateStatus = this.updateStatus.bind(this);
 	    this.handleChange = this.handleChange.bind(this);
 	    this.onDrop = this.onDrop.bind(this);
 	    this.hideSidebar = this.hideSidebar.bind(this);
@@ -67,8 +68,8 @@ class App extends React.Component {
     		showmoviedetails: false,
     		movie: {},
     		status: {
-    			mode: 2,
-    			message: "Something"
+    			mode: 0,
+    			message: ""
     		}
     	};
 
@@ -82,11 +83,10 @@ class App extends React.Component {
 		db.watchfolders = new Datastore({ filename: path.join(app.getPath('userData'), 'data/watchfolders.json'), autoload: true });
 		db.files = new Datastore({ filename: path.join(app.getPath('userData'), 'data/files.json'), timestampData: true, autoload: true });
 
-		MM = new MovieMonkey(this, db);
+		MM = new MovieMonkey(db, this.updateStatus);
 
 	  	db.movies.find({}).sort({ title: 1 }).exec(function (err, docs) {
 	  		t.setState({data: docs});
-	  		console.log(docs);
 	  	});
 
 	  	this.state.allgenres.forEach(function(item, index){
@@ -99,7 +99,7 @@ class App extends React.Component {
 			  	});
 	  	});
 
-	  	// MM.watch();
+	  	MM.watch();
 	}
 
 	onDragOver(e) {
@@ -175,6 +175,25 @@ class App extends React.Component {
 	    var t = this;
     	t.state.sortby = e;
     	t.handleChange(e);
+	}
+
+	updateStatus(status, movie) {
+		let t = this;
+
+		t.setState(status);
+
+		if(movie) {
+			// Update any new genres
+			movie.genres.forEach(function(genre){
+				if(t.state.allgenres.indexOf(genre) == -1) {
+					let g = t.state.allgenres.slice();    
+					g.push(genre);
+					g.sort();   
+					t.setState({allgenres: g});
+				}
+			});
+			this.handleChange();
+		}
 	}
 
 	// Update the movie view whenever something happens

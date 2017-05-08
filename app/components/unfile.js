@@ -2,6 +2,8 @@
 import React from 'react'
 import ReactDOM from 'react-dom'
 
+import MovieMonkey from '../core/moviemonkey.js'
+
 const remote = require('electron').remote;
 const app = remote.app;
 const path = require('path');
@@ -14,12 +16,21 @@ export default class UnFile extends React.Component {
     this.play = this.play.bind(this);
     this.add = this.add.bind(this);
     this.addMovie = this.addMovie.bind(this);
+    this.updateStatus = this.updateStatus.bind(this);
 
     this.state = {
-      add: false
+      add: false,
+      status: {
+        mode: 0,
+        message: ""
+      }
     }
 
-    console.log(this.props.data._id);
+    this.MM = new MovieMonkey(this.props.db, this.updateStatus);
+  }
+
+  updateStatus(status) {
+    this.setState(status);
   }
 
   play(e) {
@@ -32,14 +43,19 @@ export default class UnFile extends React.Component {
 
   addMovie(e) {
     if (e.key === 'Enter') {
-      console.log('do validate', e.target.value);
-      this.props.onAdd(e.target.value, "", this.props.data.hash);
+
+      let movie_file = {
+        hash: this.props.data.hash,
+        fileName: this.props.data.path,
+        bytesize: this.props.data.bytesize
+      }
+
+      this.MM.addMovie(e.target.value, "", movie_file, this.props.onAdded);
     }
   }
 
   render() {
   	let unfile = this.props.data;
-
     let unfilepath = path.parse(unfile.path);
 
     return (
@@ -57,9 +73,13 @@ export default class UnFile extends React.Component {
           <div className={"unfile-add-form " + (this.state.add ? '' : 'hide') }>
             <input 
               id=""
+              className={ (this.state.status.mode ? 'hide' : '') }
               onKeyPress={this.addMovie} 
               placeholder="Type movie name and press enter ⏎" 
               ref={input => input && input.focus()} />
+            <div className={ (this.state.status.mode ? '' : 'hide') }>
+              {this.state.status.message}
+            </div>
           </div>
         </div>
     );

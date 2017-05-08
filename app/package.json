@@ -1,14 +1,14 @@
 {
   "name": "movie-monkey",
   "productName": "Movie Monkey",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "A clean and simple, open source movie manager.",
   "main": "main.js",
   "scripts": {
     "dev": "webpack --watch",
     "start": "electron ."
   },
-  "repository": "https://github.com/electron/electron-quick-start",
+  "repository": "https://github.com/shrihari/moviemonkey",
   "keywords": [
     "Electron",
     "quick",
