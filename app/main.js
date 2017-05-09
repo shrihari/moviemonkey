@@ -3,9 +3,9 @@ const electron = require('electron')
 const app = electron.app
 // Module to create native browser window.
 const BrowserWindow = electron.BrowserWindow
-
-
-// const fs = require('fs')
+const Menu = electron.Menu
+const ipcMain = electron.ipcMain
+const dialog = electron.dialog
 
 const path = require('path')
 const url = require('url')
@@ -28,6 +28,52 @@ function createWindow () {
 
   mainWindow.maximize()
 
+  // Create the Application's main menu
+  var menuTemplate = [{
+      label: app.getName(),
+      submenu: [
+          { role: "about" },
+          { type: "separator" },
+          { role: "quit" }
+      ]}, {
+      label: "File",
+      submenu: [
+          { label: "Import Movies", click: importMovies },
+          { type: "separator" },
+          { label: "Unidentified Movies", click: createUnWindow }
+      ]}, {
+      label: "Edit",
+      submenu: [
+          { role: "undo" },
+          { role: "redo" },
+          { type: "separator" },
+          { role: "cut" },
+          { role: "copy" },
+          { role: "paste" },
+          { role: "selectall" }
+      ]}, {
+      label: 'View',
+      submenu: [
+        {role: 'reload'},
+        {role: 'forcereload'},
+        {role: 'toggledevtools'},
+        {type: 'separator'},
+        {role: 'resetzoom'},
+        {role: 'zoomin'},
+        {role: 'zoomout'},
+        {type: 'separator'},
+        {role: 'togglefullscreen'}
+      ]}, {
+        role: 'window',
+        submenu: [
+          {role: 'minimize'},
+          {role: 'close'}
+        ]
+      }
+  ];
+
+  Menu.setApplicationMenu(Menu.buildFromTemplate(menuTemplate));
+
   // Open the DevTools.
   // mainWindow.webContents.openDevTools()
   mainWindow.once('ready-to-show', () => {
@@ -43,6 +89,30 @@ function createWindow () {
     mainWindow = null
   })
 }
+
+function createUnWindow() {
+  let unWindow = new BrowserWindow({title: "Movie Monkey - Unidentified Files"});
+
+  unWindow.loadURL(url.format({
+    pathname: path.join(app.getAppPath(), 'unidentified.html'),
+    protocol: 'file:',
+    slashes: true
+  }));
+
+  unWindow.once('ready-to-show', () => {
+    unWindow.show()
+  });
+}
+
+function importMovies() {
+  dialog.showOpenDialog({properties: ['openFile', 'openDirectory', 'multiSelections']}, function(filePaths) {
+    mainWindow.webContents.send('import-movies', filePaths)
+  });
+}
+
+ipcMain.on('open-unwindow', (event, arg) => {
+  createUnWindow();
+})
 
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.

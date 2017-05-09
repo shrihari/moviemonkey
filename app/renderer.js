@@ -18,7 +18,7 @@ import MovieMonkey from './core/moviemonkey.js'
 
 const remote = require('electron').remote;
 const app = remote.app;
-const BrowserWindow = remote.BrowserWindow;
+const ipcRenderer = require('electron').ipcRenderer;
 
 const fs = require('fs');
 const path = require('path');
@@ -45,6 +45,7 @@ var isVideo = function(fileName) {
     	return false;
 }
 
+
 class App extends React.Component {
 
 	constructor(props) {
@@ -55,6 +56,7 @@ class App extends React.Component {
 	    this.updateStatus = this.updateStatus.bind(this);
 	    this.handleChange = this.handleChange.bind(this);
 	    this.onDrop = this.onDrop.bind(this);
+	    this.importMovies = this.importMovies.bind(this);
 	    this.hideSidebar = this.hideSidebar.bind(this);
 	    this.hideMovieDetails = this.hideMovieDetails.bind(this);
 	    this.openUnidentifiedWindow = this.openUnidentifiedWindow.bind(this);
@@ -100,6 +102,10 @@ class App extends React.Component {
 	  	});
 
 	  	MM.watch();
+
+		ipcRenderer.on('import-movies', (event, filePaths) => {
+			t.importMovies(filePaths)
+		})
 	}
 
 	onDragOver(e) {
@@ -109,34 +115,47 @@ class App extends React.Component {
 	onDrop(e) {
 	    e.preventDefault();
 
+	    let filePaths = [], t = this;
+
+		forEachAsync(e.dataTransfer.files, function(next, f, index, array){
+			filePaths.push(f.path);
+			next();
+		}).then(function() {
+		    t.importMovies(filePaths);
+		    return false;
+		});
+	}
+
+	importMovies(filePaths) {
+
 		this.setState({status: {mode: 1, message: "🔍 Scanning your files..."}});
 
 		let fileList = [];
 
-		forEachAsync(e.dataTransfer.files, function(next, f, index, array){
+		forEachAsync(filePaths, function(next, fp, index, array){
 
-			if( fs.lstatSync(f.path).isFile() && isVideo(f.path) ) {
-				fileList.push( f.path );
+			if( fs.lstatSync(fp).isFile() && isVideo(fp) ) {
+				fileList.push( fp );
 				next();
 			}
-			else if ( fs.lstatSync(f.path).isDirectory() ) {
+			else if ( fs.lstatSync(fp).isDirectory() ) {
 
 				// Add to watchfolders, and remove subdirectories from being watched
 				db.watchfolders.update(
-					{path: f.path},
-					{path: f.path},
+					{path: fp},
+					{path: fp},
 					{upsert: true},
 					function(e, n, u) {});
 
-				filewalker(f.path)
+				filewalker(fp)
 					.on('file', function(p, s) {
 						if( isVideo(p) )
-					    	fileList.push( path.join(f.path, p) );
+					    	fileList.push( path.join(fp, p) );
 				    })
 				    .on('dir', function(p) {
 
 						db.watchfolders.remove({ 
-							path: path.join(f.path, p) }, 
+							path: path.join(fp, p) }, 
 							{}, 
 							function (e, n) {});
 				    })
@@ -155,8 +174,6 @@ class App extends React.Component {
 			MM.processFiles(fileList);
 
 		});
-
-	    return false;
 	}
 
 	genreChange(e) {	
@@ -242,17 +259,7 @@ class App extends React.Component {
 
 	openUnidentifiedWindow(e) {
 		if (this.state.status.mode == 2) {
-			let unWindow = new BrowserWindow({title: "Movie Monkey - Unidentified Files"});
-
-			unWindow.loadURL(url.format({
-				pathname: path.join(app.getAppPath(), 'unidentified.html'),
-				protocol: 'file:',
-				slashes: true
-			}));
-
-			unWindow.once('ready-to-show', () => {
-				unWindow.show()
-			});
+			ipcRenderer.send('open-unwindow');
 		}
 		this.setState({status: {mode: 0, message: ""}});
 	}

@@ -118,6 +118,7 @@ select:-internal-list-box, select:-internal-list-box option:checked {
 	border: 0;
 	background: url(../img/search.svg) 10px center no-repeat;
 	background-size: 16px 16px;
+	-webkit-app-region: no-drag;
 }
 #searchbar::-webkit-input-placeholder {
 	font-size: 16px;
