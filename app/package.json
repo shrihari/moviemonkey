@@ -3,21 +3,28 @@
   "productName": "Movie Monkey",
   "version": "0.0.3",
   "description": "A clean and simple, open source movie manager.",
+  "email": "<chimp@getmoviemonkey.com>",
+  "author": {
+    "name": "Shrihari",
+    "email": "iamshrihari@gmail.com"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/shrihari/moviemonkey.git"
+  },
+  "license": "CC0-1.0",
   "main": "main.js",
   "scripts": {
     "dev": "webpack --watch",
     "start": "electron ."
   },
-  "repository": "https://github.com/shrihari/moviemonkey",
   "keywords": [
-    "Electron",
-    "quick",
-    "start",
-    "tutorial",
-    "demo"
+    "Movie Monkey",
+    "movies",
+    "tv shows",
+    "media",
+    "organizer"
   ],
-  "author": "Shrihari <iamshrihari@gmail.com>",
-  "license": "CC0-1.0",
   "devDependencies": {
     "babel": "^6.5.2",
     "babel-core": "^6.18.2",
@@ -30,6 +37,8 @@
     "xml2js": "^0.4.0"
   },
   "dependencies": {
+    "electron-contextmenu-middleware": "^1.0.3",
+    "electron-input-menu": "^2.1.0",
     "filewalker": "^0.1.3",
     "forEachAsync": "^3.0.0",
     "image-downloader": "^2.0.3",
