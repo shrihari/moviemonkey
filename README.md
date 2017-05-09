@@ -5,8 +5,8 @@
 ![Movie Monkey Screenshot](http://getmoviemonkey.com/img/screenshot.jpg)
 
 ## Roadmap for v1
-* Watch added folders for new movies
-* Allow user to manually add movies that were not identified automatically
+* ~~Watch added folders for new movies~~ ✅ at launch
+* ~~Allow user to manually add movies that were not identified automatically~~
 * Edit / Delete / Open Folder / Open IMDb options on movie details page
 * Rotten tomatoes & Metacritic scores
 * Mark as Watched / Not watched
