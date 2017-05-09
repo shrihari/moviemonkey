@@ -14,6 +14,10 @@
   },
   "build": {
       "appId": "com.moviemonkey",
-      "app-category-type": "public.app-category.entertainment"
+      "app-category-type": "public.app-category.entertainment",
+      "files": [
+          "**/*",
+          "!node_modules${/*}"
+      ]
   }
 }
