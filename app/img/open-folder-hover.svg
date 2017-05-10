@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="40px" height="40px" viewBox="0 0 40 40" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <!-- Generator: Sketch 43.2 (39069) - http://www.bohemiancoding.com/sketch -->
+    <title>open-folder-hover</title>
+    <desc>Created with Sketch.</desc>
+    <defs></defs>
+    <g id="App" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <path d="M20,0 C31.05,0 40,8.95 40,20 C40,31.05 31.05,40 20,40 C8.95,40 0,31.05 0,20 C0,8.95 8.95,0 20,0 Z M18.6666667,13 L13.6666667,13 C12.75,13 12.0083333,13.75 12.0083333,14.6666667 L12,24.6666667 C12,25.5833333 12.75,26.3333333 13.6666667,26.3333333 L27,26.3333333 C27.9166667,26.3333333 28.6666667,25.5833333 28.6666667,24.6666667 L28.6666667,16.3333333 C28.6666667,15.4166667 27.9166667,14.6666667 27,14.6666667 L20.3333333,14.6666667 L18.6666667,13 Z" id="open-folder-hover" fill="#FFFFFF" fill-rule="nonzero"></path>
+    </g>
+</svg>

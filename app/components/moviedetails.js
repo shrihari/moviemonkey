@@ -12,10 +12,20 @@ export default class MovieDetails extends React.Component {
   constructor(props) {
     super(props);
     this.openFile = this.openFile.bind(this);
+    this.openFolder = this.openFolder.bind(this);
+    this.openIMDb = this.openIMDb.bind(this);
   }
 
   openFile(e) {
     shell.openItem(this.props.movie.fileName);
+  }
+
+  openFolder(e) {
+    shell.showItemInFolder(this.props.movie.fileName);
+  }
+
+  openIMDb(e) {
+    shell.openExternal("http://www.imdb.com/title/" + this.props.movie.imdbid);
   }
 
   render() {
@@ -83,6 +93,10 @@ export default class MovieDetails extends React.Component {
               <div className="movie-directors">
                 <div className="movie-directors-title">Directed by</div>
                 {directors}
+              </div>
+              <div className="movie-actions">
+                <div className="movie-action open-folder" onClick={this.openFolder}></div>
+                <div className="movie-action open-imdb" onClick={this.openIMDb}></div>
               </div>
             </div>
 

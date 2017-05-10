@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="40px" height="40px" viewBox="0 0 40 40" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <!-- Generator: Sketch 43.2 (39069) - http://www.bohemiancoding.com/sketch -->
+    <title>open-imdb</title>
+    <desc>Created with Sketch.</desc>
+    <defs></defs>
+    <g id="App" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <g id="open-imdb" fill-rule="nonzero" fill="#FFFFFF">
+            <path d="M20,0 C8.95,0 0,8.95 0,20 C0,31.05 8.95,40 20,40 C31.05,40 40,31.05 40,20 C40,8.95 31.05,0 20,0 Z M20,36 C11.18,36 4,28.82 4,20 C4,11.18 11.18,4 20,4 C28.82,4 36,11.18 36,20 C36,28.82 28.82,36 20,36 Z" id="Shape-Copy-2"></path>
+            <path d="M11.9,20 C11.9,18.29 13.29,16.9 15,16.9 L19,16.9 L19,15 L15,15 C12.24,15 10,17.24 10,20 C10,22.76 12.24,25 15,25 L19,25 L19,23.1 L15,23.1 C13.29,23.1 11.9,21.71 11.9,20 Z M16,21 L24,21 L24,19 L16,19 L16,21 Z M25,15 L21,15 L21,16.9 L25,16.9 C26.71,16.9 28.1,18.29 28.1,20 C28.1,21.71 26.71,23.1 25,23.1 L21,23.1 L21,25 L25,25 C27.76,25 30,22.76 30,20 C30,17.24 27.76,15 25,15 Z" id="Shape"></path>
+        </g>
+    </g>
+</svg>

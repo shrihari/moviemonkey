@@ -396,6 +396,36 @@ select:-internal-list-box, select:-internal-list-box option:checked {
 	content: ',';
 }
 
+.movie-actions {
+	display: flex;
+	padding: 0 20px;
+	margin-top: 10px;
+}
+.movie-action {
+	opacity: .2;
+	cursor: pointer;
+	width: 5vmin;
+    height: 5vmin;
+    margin-right: 10px;
+    background-size: 100% 100%;
+    transition: all .2s;
+}
+.movie-action:hover {
+	opacity: .8;
+}
+.movie-action.open-folder {
+    background: url(../img/open-folder.svg) center center no-repeat;
+}
+.movie-action.open-folder:hover {
+	background: url(../img/open-folder-hover.svg) center center no-repeat;
+}
+.movie-action.open-imdb {
+    background: url(../img/open-imdb.svg) center center no-repeat;
+}
+.movie-action.open-imdb:hover {
+	background: url(../img/open-imdb-hover.svg) center center no-repeat;
+}
+
 #back {
 	width: 80px;
 	height: 100%;
