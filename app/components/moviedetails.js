@@ -73,6 +73,7 @@ export default class MovieDetails extends React.Component {
               <div className="movie-rating-genres">
                 <div className="movie-rating">{movie.imdbrating}</div>
                 <div className="movie-genres">{genres}</div>
+                <div className="movie-runtime">{movie.runtime} mins</div>
               </div>
               <div className="movie-plot">{movie.plot}</div>
               <div className="movie-actors">
