@@ -243,7 +243,7 @@ export default class MovieMonkey {
 
 		let t = this;
 
-		omdbapi.get({title: title, id: imdbid}).then(function(movie) {
+		omdbapi.get({title: title, id: imdbid, apikey: "d1e90517"}).then(function(movie) {
 
 			if(movie.type == 'movie') {
 
