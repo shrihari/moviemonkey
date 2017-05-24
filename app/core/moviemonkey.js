@@ -10,6 +10,7 @@ const tmdb = new (require('tmdbapi'))({ apiv3: '5d357768816b32bc2a1f43a06b62cf4c
 
 const img_dl = require('image-downloader');
 const filewalker = require('filewalker');
+const episode_parser = require('episode-parser');
 
 var libhash = require('opensubtitles-api/lib/hash.js');
 var OS = require('opensubtitles-api');
@@ -40,7 +41,11 @@ var isVideo = function(fileName) {
     	return false;
 }
 // Swap this for formatList
-var toArray = function(o) { return Object.keys(o).map(k => o[k]) }
+var toArray = function(o) { 
+	if(o[0] == null) return null;
+
+	return Object.keys(o).map(k => o[k])
+}
 
 export default class MovieMonkey {
 	constructor(db, updateStatus) {
@@ -58,58 +63,92 @@ export default class MovieMonkey {
 		if(t.showStatus)
 			t.updateStatus({status: {mode: 1, message: "🎬 "+movie.title+" - Adding..."}});
 
-		t.db.movies.insert({
-			tmdb_id: tmovie['id'],
+		let M = {}
 
-			poster_path: tmovie['poster_path'],
-			backdrop_path: tmovie['backdrop_path'],
+		M.tmdb_id = tmovie['id'];
 
-			hash: movie_file.hash, 
-			fileName: movie_file.fileName,
-			bytesize: movie_file.bytesize,
+		M.imdbid = movie.imdbid;
+		M.imdbrating = +movie.imdbrating;
+		M.imdbvotes = +movie.imdbvotes;
 
-			imdbid: movie.imdbid,
-			imdbrating: +movie.imdbrating,
-			imdbvotes: +movie.imdbvotes.match(/\d/g).join(''),
+		M.actors = (movie.actors) ? toArray(movie.actors) : null;
+		M.awards = movie.awards;
+		M.boxoffice = movie.boxoffice;
+		M.country = (movie.country) ? toArray(movie.country) : null;
+		M.directors = (movie.director) ? toArray(movie.director) : null;
+		M.dvd = movie.dvd;
+		M.genres = (movie.genre) ? toArray(movie.genre) : null;
+		// M.language = movie.language.split(', ');
+		M.plot = movie.plot;
+		M.production = movie.production;
+		M.rated = movie.rated;
+		M.released = new Date(movie.released);
+		M.runtime = +movie.runtime.split(" min")[0];
+		M.title = movie.title;
+		M.type = movie.type;
+		M.writers = (movie.writer) ? toArray(movie.writer) : null;
+		// M.year = isNaN(movie.year) ? movie.year : +movie.year;
+		M.year = movie.year;
 
-			actors: (movie.actors) ? toArray(movie.actors) : null,
-			awards: movie.awards,
-			boxoffice: movie.boxoffice,
-			country: (movie.country) ? toArray(movie.country) : null,
-			directors: (movie.director) ? toArray(movie.director) : null,
-			dvd: movie.dvd,
-			genres: (movie.genre) ? toArray(movie.genre) : null,
-			language: movie.language.split(', '),
-			plot: movie.plot,
-			production: movie.production,
-			rated: movie.rated,
-			released: new Date(movie.released),
-			runtime: +movie.runtime.split(" min")[0],
-			title: movie.title,
-			type: "movie",
-			writers: (movie.writer) ? toArray(movie.writer) : null,
-			year: +movie.year,
+		M.ratings = movie.ratings;
+		M.metacritic = movie.metascore;
 
-			ratings: movie.ratings,
-			metacritic: movie.metascore,
-		}, function(err, newDoc) {
+		if (movie.type == 'movie') {
+
+			M.poster_path = tmovie['poster_path'];
+			M.backdrop_path = tmovie['backdrop_path'];
+
+			M.hash = movie_file.hash;
+			M.fileName = movie_file.fileName;
+			M.bytesize = movie_file.bytesize;
+
+		} else if (movie.type == 'episode') {
+
+			M.still_path = tmovie['still_path'];
+
+			M.hash = movie_file.hash;
+			M.fileName = movie_file.fileName;
+			M.bytesize = movie_file.bytesize;
+
+			M.season = movie.season;
+			M.episode = movie.episode;
+
+			M.seriesid = movie.seriesid;
+
+		} else if (movie.type == 'series') {
+
+			M.poster_path = tmovie['poster_path'];
+			M.backdrop_path = tmovie['backdrop_path'];
+
+			M.totalseasons = +movie.totalseasons;
+		}
+
+		t.db.movies.insert(M, function(err, newDoc) {
 
 			if(t.showStatus)
 				t.updateStatus({status: {mode: 1, message: "👍 "+movie.title+" - Added"}}, newDoc);
 
-			t.db.files.update(
-				{ path: movie_file.fileName },
-				{
-					path: movie_file.fileName,
-					type: "movie",
-					hash: movie_file.hash,
-					bytesize: movie_file.bytesize
-				}, 
-				{upsert: true}, 
-				function(e, newDoc, u) {
-					done();
-				});
+			if(M.type == 'movie' || M.type == 'episode') {
+
+				t.db.files.update(
+					{ path: movie_file.fileName },
+					{
+						path: movie_file.fileName,
+						type: "movie",
+						hash: movie_file.hash,
+						bytesize: movie_file.bytesize
+					}, 
+					{upsert: true}, 
+					function(e, newDoc, u) {
+						done();
+					});
+
+			} else {
+				done();
+			}
+
 		});
+
 	}
 
 	downloadBackdrop(movie_file, movie, tmovie, done) {
@@ -155,16 +194,74 @@ export default class MovieMonkey {
 
 	}
 
+	downloadStill(movie_file, movie, tmovie, done) {
+
+		let t = this;
+
+		if(t.showStatus)
+			t.updateStatus({status: {mode: 1, message: "🎬 "+movie.title+" - Downloading still..."}});
+
+		// Get poster url
+		let tposter = tmdb_config['base_url'] + "w500" + tmovie['still_path'];
+
+		img_dl({
+			url: tposter,
+			dest: path.join(app.getPath('userData'), 'stills'),
+			done: function(e, f, i) {
+
+				t.insertIntoDB(movie_file, movie, tmovie, done);
+
+			}
+		});
+
+	}
+
+	addTvShow(movie_file, movie, tmovie, done) {
+
+		let t = this;
+
+		t.db.movies.find({imdbid: movie.seriesid}).exec(function(err, docs){
+
+			if(docs.length == 0) {
+
+				t.addMovie("", movie.seriesid, {}, function(){
+
+					t.downloadStill(movie_file, movie, tmovie, done);
+				});
+
+			} else {
+
+				t.downloadStill(movie_file, movie, tmovie, done);
+
+			}
+
+		});
+	}
+
 	getTMDbDetails(movie_file, movie, done) {
 
 		let t = this;
 
 		tmdb.find({external_id: movie.imdbid, external_source: 'imdb_id' }).then(function(res) {
 
-			let tmovie = res.movie_results[0];
-			// or tv_episode_results
+			if(res.movie_results.length > 0) {
 
-			t.downloadPoster(movie_file, movie, tmovie, done);
+				let tmovie = res.movie_results[0];
+				t.downloadPoster(movie_file, movie, tmovie, done);
+
+			} else if(res.tv_episode_results.length > 0) {
+
+				let tmovie = res.tv_episode_results[0];
+				t.addTvShow(movie_file, movie, tmovie, done);
+
+			} else if(res.tv_results.length > 0){
+
+				let tmovie = res.tv_results[0];
+				t.downloadPoster(movie_file, movie, tmovie, done);
+
+			} else {
+				done();
+			}
 
 		}).catch(console.error);
 
@@ -178,7 +275,7 @@ export default class MovieMonkey {
 
 		this.db.movies.find({imdbid: movie.imdbid}).exec(function(err, docs){
 
-			if(docs.length > 0) {
+			if(movie.type != 'series' && docs.length > 0) {
 
 				let m = docs[0];
 				let bs = movie_file.bytesize;
@@ -218,8 +315,8 @@ export default class MovieMonkey {
 
 							});
 						});
-				}
-				else {
+
+				} else {
 
 					t.db.files.update({path:movie_file.fileName}, {
 						path: movie_file.fileName,
@@ -245,14 +342,34 @@ export default class MovieMonkey {
 
 		omdbapi.get({title: title, id: imdbid, apikey: "d1e90517"}).then(function(movie) {
 
-			if(movie.type == 'movie') {
+			if(movie.type == 'movie' || movie.type == 'episode' || movie.type == 'series') {
 
 				if(t.showStatus)
 					t.updateStatus({status: {mode: 1, message: "🎬 "+movie.title+" - Fetching details..."}});
 
-				t.checkInDB(movie_file, movie, done);
+				let ep = null
+
+				if(movie.type == 'episode') {
+					ep = episode_parser(movie_file.fileName)
+				}
+
+				if(ep != null && (ep.season != movie.season || ep.episode != movie.episode)) {
+
+					omdbapi.get({id: movie.seriesid, season: ep.season, episode: ep.episode, apikey: "d1e90517"}).then(function(new_movie) {
+
+						console.log("this matches", new_movie.title);
+						t.checkInDB(movie_file, new_movie, done);
+
+					}).catch(console.error);
+
+				} else {
+
+					t.checkInDB(movie_file, movie, done);
+
+				}
 
 			} else {
+
 				done();
 			}
 
@@ -274,7 +391,7 @@ export default class MovieMonkey {
 			});
 		}).then(function(){
 			if(t.unidentified.length > 0)
-				t.updateStatus({status: {mode: 2, message: "All done. Some files could not be identified automatically. Click here to identify them manually."}})
+				t.updateStatus({status: {mode: 2, message: "Some files could not be identified automatically. Click here to identify them manually."}})
 		});
 	}
 
@@ -289,7 +406,8 @@ export default class MovieMonkey {
 				bytesize: t.bytesizeList[t.hashList.indexOf(OSObject['MovieHash'])]
 			}
 
-			if(OSObject['MovieKind'] != 'movie') { next(); return; }
+			// To-do: write a better conditional
+			if(OSObject['MovieKind'] != 'movie' && OSObject['MovieKind'] != 'episode') { next(); return; }
 
 			if(t.showStatus)
 				t.updateStatus({status: {mode: 1, message: "🎬 "+OSObject['MovieName']+" - Checking..."}});
@@ -324,10 +442,8 @@ export default class MovieMonkey {
 				// Convert ugly object into pretty array
 				for (var key in r) {			// if (r.hasOwnProperty(key))
 					if (r[key].hasOwnProperty('MovieHash')) {
-						if (r[key]['MovieKind'] == 'movie') {			// Process movies
+						if (r[key]['MovieKind'] == 'movie' || r[key]['MovieKind'] == 'episode') {
 							t.movies.push(r[key]);
-						} else if (r[key]['MovieKind'] == 'episode') {	// Ignore TV shows for now
-							t.episodes.push(r[key]);
 						} else {
 							console.log(r[key]);
 						}
