@@ -22,7 +22,7 @@ export default class Movie extends React.Component {
           </div>
     			<div className="title">{movie.title}</div>
           <div className="meta">
-      			<div className="year">{movie.year}</div>&nbsp;&nbsp;•&nbsp;&nbsp;
+      			<div className="year">{ (movie.type === 'series') ? movie.year.split("–")[0] : movie.year }</div>&nbsp;&nbsp;•&nbsp;&nbsp;
             <div className="rating">{movie.imdbrating}</div>
           </div>
 	      </a>

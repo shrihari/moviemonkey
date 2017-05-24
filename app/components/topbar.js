@@ -9,6 +9,9 @@ export default class Topbar extends React.Component {
     this.sortByTitle = this.sortByTitle.bind(this);
     this.sortByYear = this.sortByYear.bind(this);
     this.sortByRating = this.sortByRating.bind(this);
+    this.showMovies = this.showMovies.bind(this);
+    this.showSeries = this.showSeries.bind(this);
+    this.show = "movie"
   }
 
   handleSearchChange(e) {
@@ -39,6 +42,15 @@ export default class Topbar extends React.Component {
     this.props.onSortChange(sortby);
   }
 
+  showMovies() {
+    this.show = "movie";
+    this.props.onTypeChange("movie");
+  }
+
+  showSeries() {
+    this.show = "series";
+    this.props.onTypeChange("series");
+  }
 
   render() {
     let sortClass = "";
@@ -50,7 +62,11 @@ export default class Topbar extends React.Component {
     sortClass += (this.props.sortBy[1] > 0) ? "asc" : "desc";
     
     return (
-		    <div id="topbar">
+		    <div id="topbar" className={this.props.className}>        
+          <div id="types">
+            <div className={"type " + ((this.show == "movie") ? 'selected' : '')} onClick={this.showMovies}>Movies</div>
+            <div className={"type " + ((this.show == "series") ? 'selected' : '')} onClick={this.showSeries}>Series</div>
+          </div>
 			    <input id="searchbar" value={this.props.searchQuery} onChange={this.handleSearchChange} placeholder="Search by title, actors, directors, plot etc.." />
           <div id="sort" className={sortClass}>
             <div className="sort-option sortby-title" onClick={this.sortByTitle}>Title</div>

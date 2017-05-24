@@ -53,6 +53,7 @@ class App extends React.Component {
 	    this.genreChange = this.genreChange.bind(this);
 	    this.searchChange = this.searchChange.bind(this);
 	    this.sortChange = this.sortChange.bind(this);
+	    this.typeChange = this.typeChange.bind(this);
 	    this.updateStatus = this.updateStatus.bind(this);
 	    this.handleChange = this.handleChange.bind(this);
 	    this.onDrop = this.onDrop.bind(this);
@@ -65,10 +66,12 @@ class App extends React.Component {
 			allgenres: ['Action', 'Adventure', 'Animation', 'Biography', 'Comedy', 'Crime', 'Documentary', 'Drama', 'Family', 'Fantasy', 'Film-Noir', 'History', 'Horror', 'Music', 'Musical', 'Mystery', 'Romance', 'Sci-Fi', 'Sport', 'Thriller', 'War', 'Western'],
 		  	genres: ['All'],
     		search: "",
+    		type: "movie",
     		sortby: ['title', 1],
     		data: [],
     		showmoviedetails: false,
     		movie: {},
+    		episodes: [],
     		status: {
     			mode: 0,
     			message: ""
@@ -76,9 +79,13 @@ class App extends React.Component {
     	};
 
     	var t = this;
+    	this.genres = {};
+    	this.genres['movie'] = ['Action', 'Adventure', 'Animation', 'Biography', 'Comedy', 'Crime', 'Documentary', 'Drama', 'Family', 'Fantasy', 'Film-Noir', 'History', 'Horror', 'Music', 'Musical', 'Mystery', 'Romance', 'Sci-Fi', 'Sport', 'Thriller', 'War', 'Western'];
+    	this.genres['series'] = ['Action', 'Adventure', 'Animation', 'Biography', 'Comedy', 'Crime', 'Documentary', 'Drama', 'Family', 'Fantasy', 'Film-Noir', 'History', 'Horror', 'Music', 'Musical', 'Mystery', 'Romance', 'Sci-Fi', 'Sport', 'Thriller', 'War', 'Western'];
 
 		mkdirp( path.join(app.getPath('userData'), 'posters') );
 		mkdirp( path.join(app.getPath('userData'), 'backdrops') );
+		mkdirp( path.join(app.getPath('userData'), 'stills') );
 
 		// TO DO: Handle genres better with a genres.db
 		db.movies = new Datastore({ filename: path.join(app.getPath('userData'), 'data/movies.json'), autoload: true });
@@ -87,18 +94,25 @@ class App extends React.Component {
 
 		MM = new MovieMonkey(db, this.updateStatus);
 
-	  	db.movies.find({}).sort({ title: 1 }).exec(function (err, docs) {
+	  	db.movies.find({type: t.state.type}).sort({ title: 1 }).exec(function (err, docs) {
 	  		t.setState({data: docs});
 	  	});
 
-	  	this.state.allgenres.forEach(function(item, index){
-	  		if(item != 'All')
-			  	db.movies.find({genres: { $elemMatch: item } }).exec(function (err, docs) {
-			  		if(docs.length == 0) {
-			  			t.state.allgenres.splice(t.state.allgenres.indexOf(item), 1);
-			  			t.setState({allgenres: t.state.allgenres});
-			  		}
-			  	});
+	  	t.genres['movie'].forEach(function(item, index){
+		  	db.movies.find({genres: { $elemMatch: item }, type: "movie" }).exec(function (err, docs) {
+		  		if(docs.length == 0) {
+		  			t.genres['movie'].splice(t.genres['movie'].indexOf(item), 1);
+		  			t.setState({allgenres: t.genres['movie']});
+		  		}
+		  	});
+	  	});
+
+	  	t.genres['series'].forEach(function(item, index){
+		  	db.movies.find({genres: { $elemMatch: item }, type: "series" }).exec(function (err, docs) {
+		  		if(docs.length == 0) {
+		  			t.genres['series'].splice(t.genres['series'].indexOf(item), 1);
+		  		}
+		  	});
 	  	});
 
 	  	MM.watch();
@@ -194,6 +208,35 @@ class App extends React.Component {
     	t.handleChange(e);
 	}
 
+	typeChange(type) {
+		let t = this;
+
+    	this.state.type = type;
+    	this.state.allgenres = this.genres[type];
+
+	    let selectedGenres = this.state.genres;
+
+	    selectedGenres.forEach(function(selGenre) {
+	    	if(selGenre != 'All'){
+
+				if(t.state.allgenres.indexOf(selGenre) == -1){
+
+					t.state.genres.splice(t.state.genres.indexOf(selGenre), 1);
+
+				    if(t.state.genres.length == 0){
+
+				    	t.state.genres.push('All');
+				    }
+				}
+	    	}
+
+	    });
+
+	    t.setState({genres: t.state.genres});
+
+    	this.handleChange();
+	}
+
 	updateStatus(status, movie) {
 		let t = this;
 
@@ -201,14 +244,24 @@ class App extends React.Component {
 
 		if(movie) {
 			// Update any new genres
-			movie.genres.forEach(function(genre){
-				if(t.state.allgenres.indexOf(genre) == -1) {
-					let g = t.state.allgenres.slice();    
-					g.push(genre);
-					g.sort();   
-					t.setState({allgenres: g});
+			if(movie.type == 'movie' || movie.type == 'series') {
+
+				let g = t.genres[movie.type].slice();  
+
+				movie.genres.forEach(function(genre){
+					if(t.genres[movie.type].indexOf(genre) == -1) {  
+						g.push(genre);
+						g.sort();
+					}
+				});
+
+				t.genres[movie.type] = g.slice();
+
+				if (t.state.type == movie.type) {
+			    	t.state.allgenres = g;
 				}
-			});
+			}
+
 			this.handleChange();
 		}
 	}
@@ -239,16 +292,37 @@ class App extends React.Component {
 	    let sorting = {}
 	    sorting[t.state.sortby[0]] = t.state.sortby[1];
 
-		db.movies.find({$and: [genreQuery, searchQuery]}).sort(sorting).exec(function (err, docs) {
+		db.movies.find({$and: [genreQuery, searchQuery, {type: t.state.type}]}).sort(sorting).exec(function (err, docs) {
 			t.setState({data: docs});
 		});
+
+		if(t.state.showmoviedetails == true) {
+			let movie = t.state.movie;
+			
+			db.movies.find({seriesid: movie.imdbid}).exec(function (err, episodes) {
+				movie.episodes = episodes;
+				t.setState({movie: movie, showmoviedetails: true});
+			});
+		}
 	}
 
 	// Hide sidebar
 	hideSidebar(e) {
 	    var t = this;
 		db.movies.find({imdbid: e.currentTarget.id}).exec(function (err, docs) {
-			t.setState({movie: docs[0], showmoviedetails: true});
+
+			let movie = docs[0];
+
+			if(movie.type == "series") {
+
+				db.movies.find({seriesid: movie.imdbid}).exec(function (err, episodes) {
+					movie.episodes = episodes;
+					t.setState({movie: movie, showmoviedetails: true});
+				});
+
+			} else {
+				t.setState({movie: movie, showmoviedetails: true});
+			}
 		});
 	}
 
@@ -267,25 +341,33 @@ class App extends React.Component {
 	render() {
 		return (
 			<div id="wrap" onDragOver={this.onDragOver} onDrop={this.onDrop} >
-				<Sidebar 
-					allGenres={this.state.allgenres} 
-					selectedGenres={this.state.genres} 
-					onGenreChange={this.genreChange} 
-					onBack={this.hideMovieDetails} 
-					isMovieDetailsShown={this.state.showmoviedetails} />
-
+			  <Topbar 
+			  	searchQuery={this.state.search} 
+			  	onSearchChange={this.searchChange}
+			  	sortBy={this.state.sortby}
+			  	onSortChange={this.sortChange}
+			  	onTypeChange={this.typeChange}
+			  	 className={(this.state.showmoviedetails) ? 'hide' : ''}
+			  	 />
 				<div id="main" className={(this.state.showmoviedetails) ? 'hide' : ''}>
-				  <Topbar 
-				  	searchQuery={this.state.search} 
-				  	onSearchChange={this.searchChange}
-				  	sortBy={this.state.sortby}
-				  	onSortChange={this.sortChange}
-				  	 />
+				
+					<Sidebar 
+						allGenres={this.state.allgenres} 
+						selectedGenres={this.state.genres} 
+						onGenreChange={this.genreChange} 
+						isMovieDetailsShown={this.state.showmoviedetails} />
+
+						<div id="movie-grid">
 				  <MoviesPanel data={this.state.data} onMovieSelect={this.hideSidebar} />
 				  <Statusbar status={this.state.status} onClick={this.openUnidentifiedWindow} />
+					  </div>
 				</div>
 				<div id="movie-details" className={(this.state.showmoviedetails) ? '' : 'hide'}>
-					<MovieDetails movie={this.state.movie} onHideMovieDetails={this.hideMovieDetails} />
+					<MovieDetails 
+						movie={this.state.movie} 
+						episodes={this.state.episodes} 
+						onHideMovieDetails={this.hideMovieDetails}
+						onBack={this.hideMovieDetails}  />
 				</div>
 			</div>
 		);

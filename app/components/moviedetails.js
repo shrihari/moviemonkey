@@ -14,6 +14,17 @@ export default class MovieDetails extends React.Component {
     this.openFile = this.openFile.bind(this);
     this.openFolder = this.openFolder.bind(this);
     this.openIMDb = this.openIMDb.bind(this);
+    this.playEpisode = this.playEpisode.bind(this);
+  }
+
+  componentWillReceiveProps(nextProps) {
+    if(Object.keys(this.props.movie).length != 0  &&  this.props.movie.imdbid != nextProps.movie.imdbid) {
+      this.movie_backdrop.scrollTop = 0;
+    }
+  }
+
+  playEpisode(fileName) {
+    shell.openItem(fileName);
   }
 
   openFile(e) {
@@ -28,45 +39,74 @@ export default class MovieDetails extends React.Component {
     shell.openExternal("http://www.imdb.com/title/" + this.props.movie.imdbid);
   }
 
+  movieProperty(p, type) {
+    if(p != null) {    
+      let tags = p.map(function(prop) {
+        return (
+          <div className={"movie-"+type} key={prop}>{prop}</div>
+        );
+      });
+
+      return tags;
+    } else {
+      return null;
+    }
+  }
+
   render() {
     let t = this;
     // let isShown = (t.props.isShown) ? "movie-details" : "movie-details hide";
     let movie = t.props.movie;
+    let episodes = [];
 
     if (Object.keys(movie).length === 0) return (<div></div>);
 
+    if (movie.type == "series") {
+
+      movie.episodes.forEach(function(episode) {
+        if(episodes[episode.season]) {
+          episodes[episode.season][episode.episode] = episode;
+        } else {
+          episodes[episode.season] = [];
+          episodes[episode.season][episode.episode] = episode; 
+        }
+      });
+
+    }
+
     var p = path.join(app.getPath('userData'), "backdrops", movie.backdrop_path);
     var bg = {
-      backgroundImage: 'url("' + p + '")',
-      backgroundPosition: 'center center',
-      backgroundRepeat: 'no-repeat',
-      backgroundAttachment: 'fixed',
+      backgroundImage: 'url("' + p + '")'
     };
 
-    var genres = movie.genres.map(function(genre) {
+
+    var movie_seasons = episodes.map(function(season) {
+      let season_count = season.findIndex((e) => {return e});
+
       return (
-        <div className="movie-genre" key={genre}>{genre}</div>
-      );
-    });
-    var actors = movie.actors.map(function(actor) {
-      return (
-        <div className="movie-actor" key={actor}>{actor}</div>
-      );
-    });
-    var directors = movie.directors.map(function(actor) {
-      return (
-        <div className="movie-actor" key={actor}>{actor}</div>
-      );
-    });
-    var writers = movie.writers.map(function(writer) {
-      return (
-        <div className="movie-writer" key={writer}>{writer}</div>
+        <div className="movie-season" key={"season" + season[season_count].season}>
+          <div className="movie-season-title">Season {season[season_count].season}</div>
+          <div className="movie-episodes">
+          {season.map(function(episode) {
+            return (
+                <div className="movie-episode" key={"e" + episode.season + episode.episode}>
+                  <img src={path.join(app.getPath('userData'), "stills", episode.still_path)} alt={episode.title} width="100%" />
+                  <div className="movie-episode-actions">
+                    <div className="movie-episode-play" onClick={() => t.playEpisode(episode.fileName)}></div>
+                  <div className="movie-episode-number">{episode.episode}</div>
+                  </div>
+                </div>
+            );
+          })}
+          </div>
+        </div>
       );
     });
 
     return (
       <div className="movie-details">
-		    <div className="movie-backdrop" style={bg}>
+        <div id="back" onClick={this.props.onBack}></div>
+		    <div className="movie-backdrop" style={bg} ref={(m) => { this.movie_backdrop = m; }}>
 
           <div className="movie-overlay">
 
@@ -74,33 +114,52 @@ export default class MovieDetails extends React.Component {
 
               <img src={path.join(app.getPath('userData'), "posters", movie.poster_path)} />
               <div className="movie-poster-actions">
-                <div className="movie-play" onClick={this.openFile}></div>
+                {movie.type == "movie" &&
+                  <div className="movie-play" onClick={this.openFile}></div>
+                }
               </div>
+
             </div>
 
             <div className="movie-information">
               <div className="movie-title">{movie.title} <span className="movie-year">({movie.year})</span></div>
               <div className="movie-rating-genres">
                 <div className="movie-rating">{movie.imdbrating}</div>
-                <div className="movie-genres">{genres}</div>
+                <div className="movie-genres">{ t.movieProperty(movie.genres, 'genre') }</div>
                 <div className="movie-runtime">{movie.runtime} mins</div>
               </div>
               <div className="movie-plot">{movie.plot}</div>
-              <div className="movie-actors">
-                <div className="movie-actors-title">Actors</div>
-                {actors}
-              </div>
-              <div className="movie-directors">
-                <div className="movie-directors-title">Directed by</div>
-                {directors}
-              </div>
+
+              { (movie.actors != null) &&
+                <div className="movie-actors">
+                  <div className="movie-actors-title">Actors</div>
+                  { t.movieProperty(movie.actors, 'actor') }
+                </div>
+              }
+
+              { (movie.directors != null) &&
+                <div className="movie-directors">
+                  <div className="movie-directors-title">Directed by</div>
+                  { t.movieProperty(movie.directors, 'director') }
+                </div>
+              }
+
               <div className="movie-actions">
-                <div className="movie-action open-folder" onClick={this.openFolder}></div>
+                {movie.type == "movie" &&
+                  <div className="movie-action open-folder" onClick={this.openFolder}></div>
+                }
                 <div className="movie-action open-imdb" onClick={this.openIMDb}></div>
               </div>
             </div>
 
           </div>
+          {movie.type == "series" &&   
+            <div className="movie-seasons-wrap">       
+              <div className="movie-seasons">
+                {movie_seasons}
+              </div>
+            </div>
+          }
 
         </div>
 		  </div>
