@@ -7,17 +7,28 @@ const Menu = electron.Menu
 const ipcMain = electron.ipcMain
 const dialog = electron.dialog
 
-const {autoUpdater} = require("electron-updater");
+
 
 const path = require('path')
 const url = require('url')
 
-
+const {autoUpdater} = require("electron-updater");
 autoUpdater.on('checking-for-update', () => {
   console.log('Checking for update...');
+  dialog.showMessageBox({
+    title: 'Updates',
+    message: 'Checking for updates'
+  }, () => {
+  })
 })
 autoUpdater.on('update-available', (ev, info) => {
   console.log('Update available.');
+  dialog.showMessageBox({
+    title: 'Updates',
+    message: 'Updates available'
+  }, () => {
+  })
+
 })
 autoUpdater.on('update-not-available', (ev, info) => {
   console.log('Update not available.');

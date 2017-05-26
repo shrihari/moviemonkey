@@ -1,7 +1,7 @@
 {
   "name": "movie-monkey",
   "productName": "Movie Monkey",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "A clean and simple, open source movie manager.",
   "email": "<chimp@getmoviemonkey.com>",
   "author": {
@@ -24,11 +24,13 @@
       "electron-builder": "^18.0.0",
       "electron-prebuilt": "~1.2.X"
   },
+  "dependencies": {
+    "electron-updater": "^1.4.2"
+  },
   "build": {
       "appId": "com.moviemonkey",
       "files": [
-          "**/*",
-          "!node_modules${/*}"
+          "**/*"
       ],
       "mac": {
         "category": "public.app-category.entertainment",
