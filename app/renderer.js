@@ -120,6 +120,10 @@ class App extends React.Component {
 		ipcRenderer.on('import-movies', (event, filePaths) => {
 			t.importMovies(filePaths)
 		})
+
+		ipcRenderer.on('message', (event, msg) => {
+			console.log(msg)
+		})
 	}
 
 	onDragOver(e) {

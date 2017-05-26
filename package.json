@@ -1,7 +1,7 @@
 {
   "name": "movie-monkey",
   "productName": "Movie Monkey",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "A clean and simple, open source movie manager.",
   "email": "<chimp@getmoviemonkey.com>",
   "author": {

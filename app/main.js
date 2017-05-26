@@ -12,26 +12,26 @@ const dialog = electron.dialog
 const path = require('path')
 const url = require('url')
 
-const {autoUpdater} = require("electron-updater");
+const electron_updater = require("electron-updater")
+const autoUpdater = electron_updater.autoUpdater;
+// Keep a global reference of the window object, if you don't, the window will
+// be closed automatically when the JavaScript object is garbage collected.
+let mainWindow
+
+autoUpdater.setConfig({
+  provider: 'github',
+  owner: 'shrihari',
+  repo: 'moviemonkey'
+});
+
 autoUpdater.on('checking-for-update', () => {
-  console.log('Checking for update...');
-  dialog.showMessageBox({
-    title: 'Updates',
-    message: 'Checking for updates'
-  }, () => {
-  })
+  mainWindow.webContents.send('message', "checking for update")
 })
 autoUpdater.on('update-available', (ev, info) => {
-  console.log('Update available.');
-  dialog.showMessageBox({
-    title: 'Updates',
-    message: 'Updates available'
-  }, () => {
-  })
-
+  mainWindow.webContents.send('message', "available")
 })
 autoUpdater.on('update-not-available', (ev, info) => {
-  console.log('Update not available.');
+  mainWindow.webContents.send('message', "not available")
 })
 autoUpdater.on('update-downloaded', () => {
   dialog.showMessageBox({
@@ -46,11 +46,10 @@ autoUpdater.on('update-downloaded', () => {
     }
   })
 })
-// Keep a global reference of the window object, if you don't, the window will
-// be closed automatically when the JavaScript object is garbage collected.
-let mainWindow
+
 
 function createWindow () {
+
   // Create the browser window.
   // , titleBarStyle: 'hidden-inset'
   mainWindow = new BrowserWindow({title: "Movie Monkey", titleBarStyle: 'hidden-inset', show: false})
@@ -111,9 +110,10 @@ function createWindow () {
   Menu.setApplicationMenu(Menu.buildFromTemplate(menuTemplate));
 
   // Open the DevTools.
-  // mainWindow.webContents.openDevTools()
+  mainWindow.webContents.openDevTools()
   mainWindow.once('ready-to-show', () => {
     mainWindow.show()
+  mainWindow.webContents.send('message', "app open")
   })
 
 
