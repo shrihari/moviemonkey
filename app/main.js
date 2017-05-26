@@ -7,9 +7,34 @@ const Menu = electron.Menu
 const ipcMain = electron.ipcMain
 const dialog = electron.dialog
 
+const {autoUpdater} = require("electron-updater");
+
 const path = require('path')
 const url = require('url')
 
+
+autoUpdater.on('checking-for-update', () => {
+  console.log('Checking for update...');
+})
+autoUpdater.on('update-available', (ev, info) => {
+  console.log('Update available.');
+})
+autoUpdater.on('update-not-available', (ev, info) => {
+  console.log('Update not available.');
+})
+autoUpdater.on('update-downloaded', () => {
+  dialog.showMessageBox({
+    title: 'Install Updates',
+    message: 'Updates downloaded, do you wanna install?',
+    buttons: ["Okay", "Later"]
+  }, (res) => {
+    if(res == 0) {
+      autoUpdater.quitAndInstall()
+    } else {
+      return;
+    }
+  })
+})
 // Keep a global reference of the window object, if you don't, the window will
 // be closed automatically when the JavaScript object is garbage collected.
 let mainWindow
@@ -88,6 +113,8 @@ function createWindow () {
     // when you should delete the corresponding element.
     mainWindow = null
   })
+
+  autoUpdater.checkForUpdates()
 }
 
 function createUnWindow() {
