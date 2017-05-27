@@ -7,18 +7,15 @@ const Menu = electron.Menu
 const ipcMain = electron.ipcMain
 const dialog = electron.dialog
 
-
-
 const path = require('path')
 const url = require('url')
 
-const electron_updater = require("electron-updater")
-const autoUpdater = electron_updater.autoUpdater;
+// const electron_updater = require("electron-updater")
+const {autoUpdater} = require("electron-updater");
+
 // Keep a global reference of the window object, if you don't, the window will
 // be closed automatically when the JavaScript object is garbage collected.
 let mainWindow
-
-console.log("ELECTRON VERSION", process.versions.electron)
 
 autoUpdater.on('checking-for-update', () => {
   mainWindow.webContents.send('message', "checking for update")
@@ -32,17 +29,14 @@ autoUpdater.on('update-not-available', (ev, info) => {
 autoUpdater.on('update-downloaded', () => {
   dialog.showMessageBox({
     title: 'Install Updates',
-    message: 'Updates downloaded, do you wanna install?',
+    message: 'Updates have been downloaded, do you want to install and restart the app now?',
     buttons: ["Okay", "Later"]
   }, (res) => {
     if(res == 0) {
       autoUpdater.quitAndInstall()
-    } else {
-      return;
     }
   })
 })
-
 
 function createWindow () {
 
@@ -106,10 +100,9 @@ function createWindow () {
   Menu.setApplicationMenu(Menu.buildFromTemplate(menuTemplate));
 
   // Open the DevTools.
-  mainWindow.webContents.openDevTools()
+  // mainWindow.webContents.openDevTools()
   mainWindow.once('ready-to-show', () => {
     mainWindow.show()
-  mainWindow.webContents.send('message', "app open")
   })
 
 

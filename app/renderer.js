@@ -45,7 +45,6 @@ var isVideo = function(fileName) {
     	return false;
 }
 
-
 class App extends React.Component {
 
 	constructor(props) {

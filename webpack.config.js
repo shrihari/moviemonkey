@@ -1,19 +1,19 @@
 var webpack = require("webpack");
 module.exports={
   entry:{
-    renderer: './renderer.js',
-    unidentified: './unidentified.js',
-    main: './main.js'
+    renderer: './app/renderer.js',
+    unidentified: './app/unidentified.js',
+    main: './app/main.js'
   },
   target: 'electron',
   output:{
-    filename:'./[name]-bundle.js'
+    filename:'./app/[name]-bundle.js'
   },
   module: {
     loaders: [
       {
         test: /\.(js)$/,
-        exclude: /(node_modules|bower_components)/,
+        exclude: /node_modules/,
         loader: 'babel',
         query:{
           presets:['react','es2015']
@@ -21,6 +21,5 @@ module.exports={
       },
       { test: /\.json$/, loader: "json-loader" }
     ]
-  },
-  plugins: [new webpack.ContextReplacementPlugin(/formidable/, /^$/)]
+  }
 }
