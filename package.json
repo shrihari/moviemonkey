@@ -13,6 +13,7 @@
     "url": "https://github.com/shrihari/moviemonkey.git"
   },
   "license": "CC0-1.0",
+  "homepage": "http://getmoviemonkey.com/",
   "scripts": {
       "watch": "webpack --watch",
       "start": "electron ./app --enable-logging",

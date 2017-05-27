@@ -12,6 +12,7 @@
     "type": "git",
     "url": "https://github.com/shrihari/moviemonkey.git"
   },
+  "homepage": "http://getmoviemonkey.com/",
   "license": "CC0-1.0",
   "main": "main-bundle.js",
   "keywords": [
