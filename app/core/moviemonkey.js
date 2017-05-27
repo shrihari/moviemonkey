@@ -11,6 +11,7 @@ const tmdb = new (require('tmdbapi'))({ apiv3: '5d357768816b32bc2a1f43a06b62cf4c
 const img_dl = require('image-downloader');
 const filewalker = require('filewalker');
 const episode_parser = require('episode-parser');
+const EA = require('electron-analytics');
 
 var libhash = require('opensubtitles-api/lib/hash.js');
 var OS = require('opensubtitles-api');
@@ -340,6 +341,8 @@ export default class MovieMonkey {
 
 		let t = this;
 
+		EA.send("ADD_MOVIE");
+		
 		omdbapi.get({title: title, id: imdbid, apikey: "d1e90517"}).then(function(movie) {
 
 			if(movie.type == 'movie' || movie.type == 'episode' || movie.type == 'series') {
@@ -374,6 +377,7 @@ export default class MovieMonkey {
 			}
 
 		}).catch(console.error);
+
 	}
 
 	addUnidentified() {

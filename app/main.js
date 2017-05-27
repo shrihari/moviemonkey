@@ -13,6 +13,9 @@ const url = require('url')
 // const electron_updater = require("electron-updater")
 const {autoUpdater} = require("electron-updater");
 
+const EA = require("electron-analytics");
+EA.init("HklJ9XpSbW")
+
 // Keep a global reference of the window object, if you don't, the window will
 // be closed automatically when the JavaScript object is garbage collected.
 let mainWindow
