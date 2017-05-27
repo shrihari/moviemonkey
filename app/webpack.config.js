@@ -2,7 +2,8 @@ var webpack = require("webpack");
 module.exports={
   entry:{
     renderer: './renderer.js',
-    unidentified: './unidentified.js'
+    unidentified: './unidentified.js',
+    main: './main.js'
   },
   target: 'electron',
   output:{

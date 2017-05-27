@@ -18,11 +18,7 @@ const autoUpdater = electron_updater.autoUpdater;
 // be closed automatically when the JavaScript object is garbage collected.
 let mainWindow
 
-autoUpdater.setConfig({
-  provider: 'github',
-  owner: 'shrihari',
-  repo: 'moviemonkey'
-});
+console.log("ELECTRON VERSION", process.versions.electron)
 
 autoUpdater.on('checking-for-update', () => {
   mainWindow.webContents.send('message', "checking for update")
@@ -56,7 +52,7 @@ function createWindow () {
   
   // and load the index.html of the app.
   mainWindow.loadURL(url.format({
-    pathname: path.join(__dirname, 'index.html'),
+    pathname: path.join(app.getAppPath(), 'index.html'),
     protocol: 'file:',
     slashes: true
   }))
