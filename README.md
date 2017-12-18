@@ -9,7 +9,7 @@
 * ✅ ~~Allow user to manually add movies that were not identified automatically~~
 * ✅ ~~Open Folder / Open IMDb options on movie details page~~
 * ✅ ~~TV show support~~
-* Autoupdate
+* ✅ ~~Autoupdate~~
 
 ## Future roadmap
 * Edit / Delete / Mark as Watched
@@ -23,16 +23,11 @@ This is built from [electron-react-quick-start](https://github.com/alexakasanjee
 # Clone this repository
 git clone https://github.com/shrihari/moviemonkey.git moviemonkey
 # Go into the repository
-cd moviemonkey/app
+cd moviemonkey
 # Install dependencies
 npm install
-# Start the webpack first
+# Start webpack first
+npm run watch
+# In different terminal, start app in development mode
 npm run dev
-# In different terminal, start app
-npm start
 ```
-
-**After making changes to renderer.js hit Ctrl+R in app window to reload manually**
-There is no hot reloading. This is a minimal boilerplate code that will just get you started.
-
-Learn more about Electron and its API in the [documentation](http://electron.atom.io/docs/latest).
