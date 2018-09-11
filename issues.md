@@ -1,0 +1,1 @@
+* Multiple episodes of series aren't unified under one movie. Issue may be associated with naming of files.
