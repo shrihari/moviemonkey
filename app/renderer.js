@@ -86,10 +86,17 @@ class App extends React.Component {
 		mkdirp( path.join(app.getPath('userData'), 'backdrops') );
 		mkdirp( path.join(app.getPath('userData'), 'stills') );
 
+		
+
 		// TO DO: Handle genres better with a genres.db
 		db.movies = new Datastore({ filename: path.join(app.getPath('userData'), 'data/movies.json'), autoload: true });
 		db.watchfolders = new Datastore({ filename: path.join(app.getPath('userData'), 'data/watchfolders.json'), autoload: true });
 		db.files = new Datastore({ filename: path.join(app.getPath('userData'), 'data/files.json'), timestampData: true, autoload: true });
+
+		//clear datastore to avoid path errors during previous dev run
+		//db.movies.remove({}, { multi: true }, function (err, numRemoved) {});
+		//db.watchfolders.remove({}, { multi: true }, function (err, numRemoved) {});
+		//db.files.remove({}, { multi: true }, function (err, numRemoved) {});
 
 		MM = new MovieMonkey(db, this.updateStatus);
 
@@ -342,6 +349,7 @@ class App extends React.Component {
 	}
 
 	render() {
+		//console.log("data",this.state)
 		return (
 			<div id="wrap" onDragOver={this.onDragOver} onDrop={this.onDrop} >
 			  <Topbar 
