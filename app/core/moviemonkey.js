@@ -268,9 +268,7 @@ export default class MovieMonkey {
       })
       .catch(function(err){
 		  console.log(err);
-		  if(err.statusCode === "404"){
-			  done();
-		  }
+		  
 	  });
   }
 
@@ -364,8 +362,8 @@ export default class MovieMonkey {
     	title:title,id:imdbid,apiKey:"d1e90517"
     },function(err,movie) {
     	if (err) {
-			console.log(err);
-			done();
+			  console.log(err);
+			  //Sdone();
     		return;
     	}
 
@@ -382,14 +380,15 @@ export default class MovieMonkey {
 
     		if(ep !== null && (ep.season !== movie.Season || ep.episode !== movie.Episode)) {
 
-    			omdbApi.get({id: movie.seriesID, season: ep.Season, episode: ep.Episode,
+    			omdbApi.get({id: movie.imdbID, season: ep.Season, episode: ep.Episode,
     				 apiKey: "d1e90517"
     				},function(err,new_movie) {
 						if(err){
 							console.log(err);
 							return;
-						}
-						console.log("this matches", new_movie.Title);
+            }
+            new_movie.seriesID = movie.seriesID;
+            console.log("this matches", new_movie.Title);
 						t.checkInDB(movie_file, new_movie, done);
 	
 					});
