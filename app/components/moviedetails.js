@@ -1,9 +1,6 @@
 
 import React from 'react'
-import ReactDOM from 'react-dom'
 
-const remote = require('electron').remote;
-const app = remote.app;
 const path = require('path');
 const shell = require('electron').shell;
 
@@ -17,18 +14,18 @@ export default class MovieDetails extends React.Component {
     this.playEpisode = this.playEpisode.bind(this);
   }
 
-  componentWillReceiveProps(nextProps) {
-    if(Object.keys(this.props.movie).length != 0  &&  this.props.movie.imdbid != nextProps.movie.imdbid) {
+  componentDidUpdate(prevProps) {
+    if(Object.keys(this.props.movie).length != 0 && prevProps.movie.imdbid !== this.props.movie.imdbid) {
       this.movie_backdrop.scrollTop = 0;
     }
   }
 
   playEpisode(fileName) {
-    shell.openItem(fileName);
+    shell.openPath(fileName);
   }
 
   openFile(e) {
-    shell.openItem(this.props.movie.fileName);
+    shell.openPath(this.props.movie.fileName);
   }
 
   openFolder(e) {
@@ -40,7 +37,7 @@ export default class MovieDetails extends React.Component {
   }
 
   movieProperty(p, type) {
-    if(p != null) {    
+    if(p != null) {
       let tags = p.map(function(prop) {
         return (
           <div className={"movie-"+type} key={prop}>{prop}</div>
@@ -58,8 +55,10 @@ export default class MovieDetails extends React.Component {
     // let isShown = (t.props.isShown) ? "movie-details" : "movie-details hide";
     let movie = t.props.movie;
     let episodes = [];
+    const userDataPath = t.props.userDataPath;
 
     if (Object.keys(movie).length === 0) return (<div></div>);
+    if (!userDataPath) return (<div></div>);
 
     if (movie.type == "series") {
 
@@ -68,13 +67,13 @@ export default class MovieDetails extends React.Component {
           episodes[episode.season][episode.episode] = episode;
         } else {
           episodes[episode.season] = [];
-          episodes[episode.season][episode.episode] = episode; 
+          episodes[episode.season][episode.episode] = episode;
         }
       });
 
     }
 
-    var p = path.join(app.getPath('userData'), "backdrops", movie.backdrop_path);
+    var p = path.join(userDataPath, "backdrops", movie.backdrop_path);
     var bg = {
       backgroundImage: 'url("' + p + '")'
     };
@@ -90,7 +89,7 @@ export default class MovieDetails extends React.Component {
           {season.map(function(episode) {
             return (
                 <div className="movie-episode" key={"e" + episode.season + episode.episode}>
-                  <img src={path.join(app.getPath('userData'), "stills", episode.still_path)} alt={episode.title} width="100%" />
+                  <img src={path.join(userDataPath, "stills", episode.still_path)} alt={episode.title} width="100%" />
                   <div className="movie-episode-actions">
                     <div className="movie-episode-play" onClick={() => t.playEpisode(episode.fileName)}></div>
                   <div className="movie-episode-number">{episode.episode}</div>
@@ -112,7 +111,7 @@ export default class MovieDetails extends React.Component {
 
             <div className="movie-poster">
 
-              <img src={path.join(app.getPath('userData'), "posters", movie.poster_path)} />
+              <img src={path.join(userDataPath, "posters", movie.poster_path)} />
               <div className="movie-poster-actions">
                 {movie.type == "movie" &&
                   <div className="movie-play" onClick={this.openFile}></div>
@@ -153,8 +152,8 @@ export default class MovieDetails extends React.Component {
             </div>
 
           </div>
-          {movie.type == "series" &&   
-            <div className="movie-seasons-wrap">       
+          {movie.type == "series" &&
+            <div className="movie-seasons-wrap">
               <div className="movie-seasons">
                 {movie_seasons}
               </div>

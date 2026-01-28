@@ -10,11 +10,7 @@ const dialog = electron.dialog
 const path = require('path')
 const url = require('url')
 
-// const electron_updater = require("electron-updater")
 const {autoUpdater} = require("electron-updater");
-
-const EA = require("electron-analytics");
-EA.init("HklJ9XpSbW")
 
 // Keep a global reference of the window object, if you don't, the window will
 // be closed automatically when the JavaScript object is garbage collected.
@@ -29,24 +25,35 @@ autoUpdater.on('update-available', (ev, info) => {
 autoUpdater.on('update-not-available', (ev, info) => {
   mainWindow.webContents.send('message', "not available")
 })
-autoUpdater.on('update-downloaded', () => {
-  dialog.showMessageBox({
+autoUpdater.on('update-downloaded', async () => {
+  const { response } = await dialog.showMessageBox({
     title: 'Install Updates',
     message: 'Updates have been downloaded, do you want to install and restart the app now?',
     buttons: ["Okay", "Later"]
-  }, (res) => {
-    if(res == 0) {
-      autoUpdater.quitAndInstall()
-    }
   })
+  if(response == 0) {
+    autoUpdater.quitAndInstall()
+  }
 })
+
+// IPC handlers for renderer processes to get app paths
+ipcMain.handle('get-user-data-path', () => app.getPath('userData'));
+ipcMain.handle('get-app-path', () => app.getAppPath());
 
 function createWindow () {
 
   // Create the browser window.
   // , titleBarStyle: 'hidden-inset'
-  mainWindow = new BrowserWindow({title: "Movie Monkey", titleBarStyle: 'hidden-inset', show: false})
-  
+  mainWindow = new BrowserWindow({
+    title: "Movie Monkey",
+    titleBarStyle: 'hidden-inset',
+    show: false,
+    webPreferences: {
+      nodeIntegration: true,
+      contextIsolation: false
+    }
+  })
+
   // and load the index.html of the app.
   mainWindow.loadURL(url.format({
     pathname: path.join(app.getAppPath(), 'index.html'),
@@ -121,7 +128,13 @@ function createWindow () {
 }
 
 function createUnWindow() {
-  let unWindow = new BrowserWindow({title: "Movie Monkey - Unidentified Files"});
+  let unWindow = new BrowserWindow({
+    title: "Movie Monkey - Unidentified Files",
+    webPreferences: {
+      nodeIntegration: true,
+      contextIsolation: false
+    }
+  });
 
   unWindow.loadURL(url.format({
     pathname: path.join(app.getAppPath(), 'unidentified.html'),
@@ -134,10 +147,13 @@ function createUnWindow() {
   });
 }
 
-function importMovies() {
-  dialog.showOpenDialog({properties: ['openFile', 'openDirectory', 'multiSelections']}, function(filePaths) {
-    mainWindow.webContents.send('import-movies', filePaths)
+async function importMovies() {
+  const { filePaths } = await dialog.showOpenDialog(mainWindow, {
+    properties: ['openFile', 'openDirectory', 'multiSelections']
   });
+  if (filePaths && filePaths.length > 0) {
+    mainWindow.webContents.send('import-movies', filePaths)
+  }
 }
 
 ipcMain.on('open-unwindow', (event, arg) => {

@@ -1,11 +1,8 @@
 
 import React from 'react'
-import ReactDOM from 'react-dom'
 
 import MovieMonkey from '../core/moviemonkey.js'
 
-const remote = require('electron').remote;
-const app = remote.app;
 const path = require('path');
 const shell = require('electron').shell;
 
@@ -26,7 +23,7 @@ export default class UnFile extends React.Component {
       }
     }
 
-    this.MM = new MovieMonkey(this.props.db, this.updateStatus);
+    this.MM = new MovieMonkey(this.props.db, this.updateStatus, this.props.userDataPath);
   }
 
   updateStatus(status) {
@@ -34,7 +31,7 @@ export default class UnFile extends React.Component {
   }
 
   play(e) {
-    shell.openItem(this.props.data.path);
+    shell.openPath(this.props.data.path);
   }
 
   add(e) {
@@ -71,11 +68,11 @@ export default class UnFile extends React.Component {
             </div>
           </div>
           <div className={"unfile-add-form " + (this.state.add ? '' : 'hide') }>
-            <input 
+            <input
               id=""
               className={ (this.state.status.mode ? 'hide' : '') }
-              onKeyPress={this.addMovie} 
-              placeholder="Type movie name and press enter ⏎" 
+              onKeyPress={this.addMovie}
+              placeholder="Type movie name and press enter"
               ref={input => input && input.focus()} />
             <div className={ (this.state.status.mode ? '' : 'hide') }>
               {this.state.status.message}

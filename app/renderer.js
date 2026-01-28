@@ -3,7 +3,7 @@
 // All of the Node.js APIs are available in this process.
 
 import React from 'react'
-import ReactDOM from 'react-dom'
+import { createRoot } from 'react-dom/client'
 
 import Datastore from 'nedb'
 
@@ -16,19 +16,16 @@ import Statusbar from './components/statusbar.js'
 
 import MovieMonkey from './core/moviemonkey.js'
 
-const remote = require('electron').remote;
-const app = remote.app;
-const ipcRenderer = require('electron').ipcRenderer;
+const { ipcRenderer } = require('electron');
 
 const fs = require('fs');
 const path = require('path');
 const url = require('url');
 
-const mkdirp = require('mkdirp');
 const filewalker = require('filewalker');
-var forEachAsync = require('forEachAsync').forEachAsync;
 
 var db = {}, MM;
+var userDataPath = null;
 
 var toArray = function(o) { return Object.keys(o).map(k => o[k]) }
 
@@ -41,7 +38,7 @@ var isVideo = function(fileName) {
 
     if (video.indexOf(ext) > -1)
     	return true;
-    else 
+    else
     	return false;
 }
 
@@ -74,7 +71,8 @@ class App extends React.Component {
     		status: {
     			mode: 0,
     			message: ""
-    		}
+    		},
+    		userDataPath: null
     	};
 
     	var t = this;
@@ -82,16 +80,34 @@ class App extends React.Component {
     	this.genres['movie'] = ['Action', 'Adventure', 'Animation', 'Biography', 'Comedy', 'Crime', 'Documentary', 'Drama', 'Family', 'Fantasy', 'Film-Noir', 'History', 'Horror', 'Music', 'Musical', 'Mystery', 'Romance', 'Sci-Fi', 'Sport', 'Thriller', 'War', 'Western'];
     	this.genres['series'] = ['Action', 'Adventure', 'Animation', 'Biography', 'Comedy', 'Crime', 'Documentary', 'Drama', 'Family', 'Fantasy', 'Film-Noir', 'History', 'Horror', 'Music', 'Musical', 'Mystery', 'Romance', 'Sci-Fi', 'Sport', 'Thriller', 'War', 'Western'];
 
-		mkdirp( path.join(app.getPath('userData'), 'posters') );
-		mkdirp( path.join(app.getPath('userData'), 'backdrops') );
-		mkdirp( path.join(app.getPath('userData'), 'stills') );
+		// Initialize asynchronously
+		this.initializeApp();
+
+		ipcRenderer.on('import-movies', (event, filePaths) => {
+			t.importMovies(filePaths)
+		})
+
+		ipcRenderer.on('message', (event, msg) => {
+			console.log(msg)
+		})
+	}
+
+	async initializeApp() {
+		const t = this;
+		userDataPath = await ipcRenderer.invoke('get-user-data-path');
+
+		this.setState({ userDataPath });
+
+		await fs.promises.mkdir( path.join(userDataPath, 'posters'), { recursive: true } );
+		await fs.promises.mkdir( path.join(userDataPath, 'backdrops'), { recursive: true } );
+		await fs.promises.mkdir( path.join(userDataPath, 'stills'), { recursive: true } );
 
 		// TO DO: Handle genres better with a genres.db
-		db.movies = new Datastore({ filename: path.join(app.getPath('userData'), 'data/movies.json'), autoload: true });
-		db.watchfolders = new Datastore({ filename: path.join(app.getPath('userData'), 'data/watchfolders.json'), autoload: true });
-		db.files = new Datastore({ filename: path.join(app.getPath('userData'), 'data/files.json'), timestampData: true, autoload: true });
+		db.movies = new Datastore({ filename: path.join(userDataPath, 'data/movies.json'), autoload: true });
+		db.watchfolders = new Datastore({ filename: path.join(userDataPath, 'data/watchfolders.json'), autoload: true });
+		db.files = new Datastore({ filename: path.join(userDataPath, 'data/files.json'), timestampData: true, autoload: true });
 
-		MM = new MovieMonkey(db, this.updateStatus);
+		MM = new MovieMonkey(db, this.updateStatus, userDataPath);
 
 	  	db.movies.find({type: t.state.type}).sort({ title: 1 }).exec(function (err, docs) {
 	  		t.setState({data: docs});
@@ -115,14 +131,6 @@ class App extends React.Component {
 	  	});
 
 	  	MM.watch();
-
-		ipcRenderer.on('import-movies', (event, filePaths) => {
-			t.importMovies(filePaths)
-		})
-
-		ipcRenderer.on('message', (event, msg) => {
-			console.log(msg)
-		})
 	}
 
 	onDragOver(e) {
@@ -134,26 +142,33 @@ class App extends React.Component {
 
 	    let filePaths = [], t = this;
 
-		forEachAsync(e.dataTransfer.files, function(next, f, index, array){
+		Array.from(e.dataTransfer.files).forEach((f, index) => {
 			filePaths.push(f.path);
-			next();
-		}).then(function() {
-		    t.importMovies(filePaths);
-		    return false;
 		});
+		t.importMovies(filePaths);
 	}
 
 	importMovies(filePaths) {
+		if (!db.movies || !MM) return;
 
-		this.setState({status: {mode: 1, message: "🔍 Scanning your files..."}});
+		this.setState({status: {mode: 1, message: "Scanning your files..."}});
 
 		let fileList = [];
+		let t = this;
+		let pending = filePaths.length;
 
-		forEachAsync(filePaths, function(next, fp, index, array){
+		if (pending === 0) {
+			this.setState({status: {mode: 0, message: ""}});
+			return;
+		}
 
+		filePaths.forEach((fp) => {
 			if( fs.lstatSync(fp).isFile() && isVideo(fp) ) {
 				fileList.push( fp );
-				next();
+				pending--;
+				if (pending === 0) {
+					MM.processFiles(fileList);
+				}
 			}
 			else if ( fs.lstatSync(fp).isDirectory() ) {
 
@@ -171,73 +186,64 @@ class App extends React.Component {
 				    })
 				    .on('dir', function(p) {
 
-						db.watchfolders.remove({ 
-							path: path.join(fp, p) }, 
-							{}, 
+						db.watchfolders.remove({
+							path: path.join(fp, p) },
+							{},
 							function (e, n) {});
 				    })
 					.on('error', function(err) {
 						console.error(err);
 					})
 					.on('done', function() {
-						next();
+						pending--;
+						if (pending === 0) {
+							MM.processFiles(fileList);
+						}
 					})
 					.walk();
 			}
-			else { next(); }
-
-		}).then(function() {
-
-			MM.processFiles(fileList);
-
+			else {
+				pending--;
+				if (pending === 0) {
+					MM.processFiles(fileList);
+				}
+			}
 		});
 	}
 
-	genreChange(e) {	
-	    var t = this;
-    	t.state.genres = e;
-    	t.handleChange(e);
+	genreChange(e) {
+	    this.setState({ genres: e }, () => this.handleChange(e));
 	}
 
 	searchChange(e) {
-	    var t = this;
-    	t.state.search = e;
-    	t.handleChange(e);
+	    this.setState({ search: e }, () => this.handleChange(e));
 	}
 
 	sortChange(e) {
-	    var t = this;
-    	t.state.sortby = e;
-    	t.handleChange(e);
+	    this.setState({ sortby: e }, () => this.handleChange(e));
 	}
 
 	typeChange(type) {
 		let t = this;
-
-    	this.state.type = type;
-    	this.state.allgenres = this.genres[type];
-
-	    let selectedGenres = this.state.genres;
+		let newAllGenres = this.genres[type];
+	    let selectedGenres = this.state.genres.slice();
 
 	    selectedGenres.forEach(function(selGenre) {
 	    	if(selGenre != 'All'){
-
-				if(t.state.allgenres.indexOf(selGenre) == -1){
-
-					t.state.genres.splice(t.state.genres.indexOf(selGenre), 1);
-
-				    if(t.state.genres.length == 0){
-
-				    	t.state.genres.push('All');
+				if(newAllGenres.indexOf(selGenre) == -1){
+					selectedGenres.splice(selectedGenres.indexOf(selGenre), 1);
+				    if(selectedGenres.length == 0){
+				    	selectedGenres.push('All');
 				    }
 				}
 	    	}
-
 	    });
 
-	    t.setState({genres: t.state.genres});
-
-    	this.handleChange();
+	    this.setState({
+	    	type: type,
+	    	allgenres: newAllGenres,
+	    	genres: selectedGenres
+	    }, () => this.handleChange());
 	}
 
 	updateStatus(status, movie) {
@@ -249,10 +255,10 @@ class App extends React.Component {
 			// Update any new genres
 			if(movie.type == 'movie' || movie.type == 'series') {
 
-				let g = t.genres[movie.type].slice();  
+				let g = t.genres[movie.type].slice();
 
 				movie.genres.forEach(function(genre){
-					if(t.genres[movie.type].indexOf(genre) == -1) {  
+					if(t.genres[movie.type].indexOf(genre) == -1) {
 						g.push(genre);
 						g.sort();
 					}
@@ -261,7 +267,7 @@ class App extends React.Component {
 				t.genres[movie.type] = g.slice();
 
 				if (t.state.type == movie.type) {
-			    	t.state.allgenres = g;
+			    	t.setState({ allgenres: g });
 				}
 			}
 
@@ -272,6 +278,10 @@ class App extends React.Component {
 	// Update the movie view whenever something happens
 	handleChange(e) {
 	    var t = this;
+
+	    // Guard: don't run if db isn't initialized yet
+	    if (!db.movies) return;
+
 	    var genreQuery = {}, searchQuery = {};
 
 	    if(t.state.genres[0] != 'All') {
@@ -301,7 +311,7 @@ class App extends React.Component {
 
 		if(t.state.showmoviedetails == true) {
 			let movie = t.state.movie;
-			
+
 			db.movies.find({seriesid: movie.imdbid}).exec(function (err, episodes) {
 				movie.episodes = episodes;
 				t.setState({movie: movie, showmoviedetails: true});
@@ -312,6 +322,7 @@ class App extends React.Component {
 	// Hide sidebar
 	hideSidebar(e) {
 	    var t = this;
+	    if (!db.movies) return;
 		db.movies.find({imdbid: e.currentTarget.id}).exec(function (err, docs) {
 
 			let movie = docs[0];
@@ -344,8 +355,8 @@ class App extends React.Component {
 	render() {
 		return (
 			<div id="wrap" onDragOver={this.onDragOver} onDrop={this.onDrop} >
-			  <Topbar 
-			  	searchQuery={this.state.search} 
+			  <Topbar
+			  	searchQuery={this.state.search}
 			  	onSearchChange={this.searchChange}
 			  	sortBy={this.state.sortby}
 			  	onSortChange={this.sortChange}
@@ -353,31 +364,30 @@ class App extends React.Component {
 			  	 className={(this.state.showmoviedetails) ? 'hide' : ''}
 			  	 />
 				<div id="main" className={(this.state.showmoviedetails) ? 'hide' : ''}>
-				
-					<Sidebar 
-						allGenres={this.state.allgenres} 
-						selectedGenres={this.state.genres} 
-						onGenreChange={this.genreChange} 
+
+					<Sidebar
+						allGenres={this.state.allgenres}
+						selectedGenres={this.state.genres}
+						onGenreChange={this.genreChange}
 						isMovieDetailsShown={this.state.showmoviedetails} />
 
 						<div id="movie-grid">
-				  <MoviesPanel data={this.state.data} onMovieSelect={this.hideSidebar} />
-				  <Statusbar status={this.state.status} onClick={this.openUnidentifiedWindow} />
-					  </div>
+			  <MoviesPanel data={this.state.data} onMovieSelect={this.hideSidebar} />
+			  <Statusbar status={this.state.status} onClick={this.openUnidentifiedWindow} />
+				  </div>
 				</div>
 				<div id="movie-details" className={(this.state.showmoviedetails) ? '' : 'hide'}>
-					<MovieDetails 
-						movie={this.state.movie} 
-						episodes={this.state.episodes} 
+					<MovieDetails
+						movie={this.state.movie}
+						episodes={this.state.episodes}
 						onHideMovieDetails={this.hideMovieDetails}
-						onBack={this.hideMovieDetails}  />
+						onBack={this.hideMovieDetails}
+						userDataPath={this.state.userDataPath} />
 				</div>
 			</div>
 		);
 	}
 }
 
-ReactDOM.render(
-	<App/>,
-	document.getElementById('app')
-);
+const root = createRoot(document.getElementById('app'));
+root.render(<App/>);
