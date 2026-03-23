@@ -53,6 +53,16 @@ export async function deleteMovie(id: number): Promise<void> {
   await run('DELETE FROM movies WHERE id = ?', [id])
 }
 
+export async function clearAllMovies(): Promise<void> {
+  await run('DELETE FROM movies')
+}
+
+export async function clearAllMedia(): Promise<void> {
+  await run('DELETE FROM movies')
+  await run('DELETE FROM episodes')
+  await run('DELETE FROM tv_shows')
+}
+
 export async function searchMovies(searchTerm: string): Promise<Movie[]> {
   return query<Movie>(
     'SELECT * FROM movies WHERE title LIKE ? ORDER BY title ASC',

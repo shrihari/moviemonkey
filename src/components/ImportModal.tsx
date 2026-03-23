@@ -65,9 +65,9 @@ export function ImportModal({ onClose, onImportComplete }: ImportModalProps) {
     setFiles(filesToMatch)
     setStep('matching')
 
-    // Start searching for the first file
-    if (filesToMatch.length > 0) {
-      searchForFile(0, filesToMatch)
+    // Search for all files
+    for (let i = 0; i < filesToMatch.length; i++) {
+      searchForFile(i, filesToMatch)
     }
   }
 
@@ -75,13 +75,27 @@ export function ImportModal({ onClose, onImportComplete }: ImportModalProps) {
     // Remove extension
     let name = filename.replace(/\.[^/.]+$/, '')
 
-    // Remove common patterns
+    // Replace dots and underscores with spaces first
+    name = name.replace(/[._]/g, ' ')
+
+    // For TV shows: extract just the show name (everything before S##E##)
+    const tvMatch = name.match(/^(.+?)\s*S\d{1,2}E\d{1,2}/i)
+    if (tvMatch) {
+      name = tvMatch[1]
+    } else {
+      // Remove common patterns for movies
+      name = name
+        .replace(/[\[\(]?\d{4}[\]\)]?/, '') // Year
+        .replace(/S\d{1,2}\s*E\d{1,2}/gi, '') // S##E## patterns
+        .replace(/\b(720p|1080p|2160p|4k|uhd|hdr|bluray|brrip|dvdrip|webrip|web-dl|hdtv|nf|amzn|dsnp|hmax)\b/gi, '')
+        .replace(/\b(x264|x265|hevc|h264|h265|avc|aac|ac3|dts|mp3|atmos|ddp?\d?\.?\d?)\b/gi, '')
+        .replace(/\b(yify|yts|rarbg|sparks|geckos|fgt|tbd|flux|ntb|ctrlhd|evo)\b/gi, '')
+        .replace(/\b(chapter|part)\s*(one|two|three|four|five|six|seven|eight|nine|ten|\d+)\b/gi, '')
+    }
+
+    // Clean up
     name = name
-      .replace(/[\[\(]?\d{4}[\]\)]?/, '') // Year
-      .replace(/\b(720p|1080p|2160p|4k|uhd|hdr|bluray|brrip|dvdrip|webrip|web-dl|hdtv)\b/gi, '')
-      .replace(/\b(x264|x265|hevc|aac|ac3|dts|mp3)\b/gi, '')
-      .replace(/\b(yify|yts|rarbg|sparks|geckos|fgt)\b/gi, '')
-      .replace(/[._-]/g, ' ')
+      .replace(/[-]/g, ' ')
       .replace(/\s+/g, ' ')
       .trim()
 
