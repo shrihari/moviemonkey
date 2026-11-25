@@ -52,7 +52,7 @@ export function IconButton({
       aria-label={label}
       aria-pressed={active}
       className={clsx(
-        'inline-flex items-center justify-center rounded-[9px] transition-[background,color,transform] duration-150 active:scale-[0.94]',
+        'inline-flex items-center justify-center rounded-[9px] transition-[background-color,color,scale] duration-150 active:scale-[0.94]',
         tone === 'default' && 'size-8 text-ink-2 hover:text-ink hover:bg-hover',
         tone === 'default' && active && 'text-ink bg-active',
         tone === 'glass' && 'size-10 rounded-full glass text-white hover:bg-white/20',

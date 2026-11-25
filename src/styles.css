@@ -96,14 +96,6 @@
     user-select: none;
   }
 
-  /* Inside Tauri the window is transparent so the sidebar gets native vibrancy. */
-  html.tauri body {
-    background: transparent;
-  }
-  html.tauri {
-    --sidebar: transparent;
-  }
-
   input,
   textarea,
   .selectable {
@@ -127,6 +119,19 @@
     outline-offset: 2px;
     border-radius: 6px;
   }
+}
+
+/*
+ * Inside Tauri the window is transparent, so the sidebar and the frame around
+ * the main pane both show the same native macOS material. Kept outside
+ * @layer base on purpose: layered rules lose to the unlayered :root/.dark
+ * theme variables, which painted the sidebar a different colour.
+ */
+html.tauri body {
+  background: transparent;
+}
+html.tauri {
+  --sidebar: transparent;
 }
 
 /* Thin overlay-style scrollbars */
@@ -168,9 +173,17 @@
   backdrop-filter: blur(24px) saturate(1.8);
 }
 
+/*
+ * content-visibility skips layout and paint for off-screen cards in big grids,
+ * but it also clips everything to the card's box (paint containment). That cut
+ * off the hover lift and shadow. The padding, cancelled out by the negative
+ * margin, gives them room inside the clip without changing the layout.
+ */
 .poster-card {
   content-visibility: auto;
   contain-intrinsic-size: auto 320px;
+  padding: 12px 16px;
+  margin: -12px -16px;
 }
 
 @keyframes card-in {

@@ -79,87 +79,89 @@ export const PosterCard = memo(function PosterCard({
   const progress = t.kind === 'series' && t.episodeCount > 0 ? t.watchedEpisodes / t.episodeCount : 0;
 
   return (
-    <div className="poster-card group" onContextMenu={onContext}>
-      <button
-        onClick={() => openTitle(t.id)}
-        className="relative block w-full text-left rounded-[10px] transition-[transform,box-shadow] duration-300 ease-[var(--ease-out-expo)] shadow-poster group-hover:shadow-poster-hover group-hover:-translate-y-1 active:scale-[0.98]"
-      >
-        <Poster src={t.poster} fallback={t.posterAlt} title={t.name} year={t.year} eager={eager} />
-
-        {/* badges */}
-        <div className="absolute top-2 left-2 flex gap-1">
-          {t.quality === '4K' && (
-            <span className="h-[18px] px-1.5 rounded-[5px] bg-black/55 backdrop-blur-md text-white text-[10px] font-bold tracking-wide flex items-center">
-              4K
-            </span>
-          )}
-          {t.hdr && (
-            <span className="h-[18px] px-1.5 rounded-[5px] bg-black/55 backdrop-blur-md text-white text-[10px] font-bold tracking-wide flex items-center">
-              HDR
-            </span>
-          )}
-        </div>
-        {t.watched && (
-          <div className="absolute top-2 right-2 size-[22px] rounded-full bg-accent text-accent-ink flex items-center justify-center shadow-md">
-            <Check className="size-3.5" strokeWidth={3} />
-          </div>
-        )}
-        {!t.watched && t.watchlist && (
-          <div className="absolute top-2 right-2 size-[22px] rounded-full bg-black/55 backdrop-blur-md text-white flex items-center justify-center">
-            <Bookmark className="size-3" fill="currentColor" />
-          </div>
-        )}
-        {!t.online && (
-          <div className="absolute inset-0 rounded-[10px] bg-black/50 flex items-end p-2">
-            <span className="text-[10px] font-semibold uppercase tracking-wide text-white/80">Offline</span>
-          </div>
-        )}
-
-        {/* hover play */}
-        <div className="absolute inset-0 rounded-[10px] bg-gradient-to-t from-black/60 via-black/0 to-black/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-        <div
-          role="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            void playTitle(t);
-          }}
-          className="absolute bottom-2.5 left-2.5 size-9 rounded-full bg-white text-black flex items-center justify-center shadow-lg opacity-0 translate-y-1 scale-90 group-hover:opacity-100 group-hover:translate-y-0 group-hover:scale-100 transition-all duration-300 ease-[var(--ease-out-expo)] hover:scale-110"
-          title="Play"
+    <div className="poster-card">
+      <div className="group" onContextMenu={onContext}>
+        <button
+          onClick={() => openTitle(t.id)}
+          className="relative block w-full text-left rounded-[10px] transition-[translate,scale,box-shadow] duration-300 ease-[var(--ease-out-expo)] shadow-poster group-hover:shadow-poster-hover group-hover:-translate-y-1 active:scale-[0.98]"
         >
-          <Play className="size-4 ml-0.5" fill="currentColor" />
-        </div>
+          <Poster src={t.poster} fallback={t.posterAlt} title={t.name} year={t.year} eager={eager} />
 
-        {progress > 0 && progress < 1 && (
-          <div className="absolute bottom-0 inset-x-0 h-[3px] bg-black/40 rounded-b-[10px] overflow-hidden">
-            <div className="h-full bg-accent" style={{ width: `${progress * 100}%` }} />
+          {/* badges */}
+          <div className="absolute top-2 left-2 flex gap-1">
+            {t.quality === '4K' && (
+              <span className="h-[18px] px-1.5 rounded-[5px] bg-black/55 backdrop-blur-md text-white text-[10px] font-bold tracking-wide flex items-center">
+                4K
+              </span>
+            )}
+            {t.hdr && (
+              <span className="h-[18px] px-1.5 rounded-[5px] bg-black/55 backdrop-blur-md text-white text-[10px] font-bold tracking-wide flex items-center">
+                HDR
+              </span>
+            )}
+          </div>
+          {t.watched && (
+            <div className="absolute top-2 right-2 size-[22px] rounded-full bg-accent text-accent-ink flex items-center justify-center shadow-md">
+              <Check className="size-3.5" strokeWidth={3} />
+            </div>
+          )}
+          {!t.watched && t.watchlist && (
+            <div className="absolute top-2 right-2 size-[22px] rounded-full bg-black/55 backdrop-blur-md text-white flex items-center justify-center">
+              <Bookmark className="size-3" fill="currentColor" />
+            </div>
+          )}
+          {!t.online && (
+            <div className="absolute inset-0 rounded-[10px] bg-black/50 flex items-end p-2">
+              <span className="text-[10px] font-semibold uppercase tracking-wide text-white/80">Offline</span>
+            </div>
+          )}
+
+          {/* hover play */}
+          <div className="absolute inset-0 rounded-[10px] bg-gradient-to-t from-black/60 via-black/0 to-black/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+          <div
+            role="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              void playTitle(t);
+            }}
+            className="absolute bottom-2.5 left-2.5 size-9 rounded-full bg-white text-black flex items-center justify-center shadow-lg opacity-0 translate-y-1 scale-90 group-hover:opacity-100 group-hover:translate-y-0 group-hover:scale-100 transition-all duration-300 ease-[var(--ease-out-expo)] hover:scale-110"
+            title="Play"
+          >
+            <Play className="size-4 ml-0.5" fill="currentColor" />
+          </div>
+
+          {progress > 0 && progress < 1 && (
+            <div className="absolute bottom-0 inset-x-0 h-[3px] bg-black/40 rounded-b-[10px] overflow-hidden">
+              <div className="h-full bg-accent" style={{ width: `${progress * 100}%` }} />
+            </div>
+          )}
+        </button>
+        {showMeta && (
+          <div className="pt-2.5 px-0.5">
+            <div className="text-[13px] font-medium text-ink truncate leading-tight">{t.name}</div>
+            <div className={clsx('mt-1 text-[12px] text-ink-2 flex items-center gap-1.5 truncate')}>
+              <span>{t.kind === 'series' ? (t.yearLabel ?? t.year) : t.year}</span>
+              {t.kind === 'series' && t.episodeCount > 0 && (
+                <>
+                  <span className="text-ink-3">·</span>
+                  <span>
+                    {t.episodeCount} ep{t.episodeCount === 1 ? '' : 's'}
+                  </span>
+                </>
+              )}
+              {t.rating ? (
+                <>
+                  <span className="text-ink-3">·</span>
+                  <span className="inline-flex items-center gap-0.5">
+                    <Star />
+                    {t.rating.toFixed(1)}
+                  </span>
+                </>
+              ) : null}
+            </div>
           </div>
         )}
-      </button>
-      {showMeta && (
-        <div className="pt-2.5 px-0.5">
-          <div className="text-[13px] font-medium text-ink truncate leading-tight">{t.name}</div>
-          <div className={clsx('mt-1 text-[12px] text-ink-2 flex items-center gap-1.5 truncate')}>
-            <span>{t.kind === 'series' ? (t.yearLabel ?? t.year) : t.year}</span>
-            {t.kind === 'series' && t.episodeCount > 0 && (
-              <>
-                <span className="text-ink-3">·</span>
-                <span>
-                  {t.episodeCount} ep{t.episodeCount === 1 ? '' : 's'}
-                </span>
-              </>
-            )}
-            {t.rating ? (
-              <>
-                <span className="text-ink-3">·</span>
-                <span className="inline-flex items-center gap-0.5">
-                  <Star />
-                  {t.rating.toFixed(1)}
-                </span>
-              </>
-            ) : null}
-          </div>
-        </div>
-      )}
+      </div>
     </div>
   );
 }, sameCard);
