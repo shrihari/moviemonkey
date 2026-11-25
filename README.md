@@ -121,7 +121,7 @@ so both stay responsive at that size.
 ## History
 
 Movie Monkey v1 (2017) was an Electron + React 15 app using OMDb, TMDB and OpenSubtitles. v2 is a ground-up rewrite;
-the old code lives in git history on `master`.
+the old code is preserved on the `v1-electron` branch.
 
 ## License
 
