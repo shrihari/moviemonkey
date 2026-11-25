@@ -16,7 +16,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import monkey from '../assets/monkey.svg';
+import { genreIcon } from '../lib/genres';
 import { topGenres, useStore, type Route } from '../lib/store';
 import { Kbd, Spinner } from './ui';
 
@@ -117,10 +117,8 @@ export function Sidebar() {
 
   return (
     <aside className="w-[232px] shrink-0 h-full flex flex-col bg-sidebar">
-      {/* window drag area + brand */}
-      <div data-tauri-drag-region className="h-[52px] shrink-0 flex items-center justify-end px-3">
-        <img src={monkey} alt="" className="size-[22px] pointer-events-none opacity-90" data-tauri-drag-region />
-      </div>
+      {/* window drag area (traffic lights live here) */}
+      <div data-tauri-drag-region className="h-[52px] shrink-0" />
 
       <div className="px-2.5">
         <button
@@ -154,7 +152,13 @@ export function Sidebar() {
         {genres.length > 0 && (
           <Section title="Genres" collapsible>
             {genres.map((g) => (
-              <NavItem key={g.genre} label={g.genre} count={g.count} route={{ name: 'genre', genre: g.genre }} />
+              <NavItem
+                key={g.genre}
+                icon={genreIcon(g.genre)}
+                label={g.genre}
+                count={g.count}
+                route={{ name: 'genre', genre: g.genre }}
+              />
             ))}
           </Section>
         )}
