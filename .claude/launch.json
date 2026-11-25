@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "web-preview",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "vite:dev"],
+      "port": 1420
+    }
+  ]
+}

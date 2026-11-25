@@ -1,72 +1,49 @@
 {
   "name": "movie-monkey",
   "productName": "Movie Monkey",
-  "version": "0.2.0",
-  "description": "A clean and simple, open source movie manager.",
-  "email": "<chimp@getmoviemonkey.com>",
-  "author": {
-    "name": "Shrihari",
-    "email": "iamshrihari@gmail.com"
-  },
+  "version": "2.0.0-alpha.1",
+  "description": "A beautiful, local-first movie & TV library for your desktop.",
+  "author": "Shrihari",
+  "license": "CC0-1.0",
+  "homepage": "https://getmoviemonkey.com/",
   "repository": {
     "type": "git",
     "url": "https://github.com/shrihari/moviemonkey.git"
   },
-  "license": "CC0-1.0",
-  "homepage": "http://getmoviemonkey.com/",
+  "type": "module",
   "scripts": {
-    "watch": "webpack --watch",
-    "start": "electron ./app --enable-logging",
-    "dev": "NODE_ENV='development' npm run start",
-    "dist": "build -mwl --x64 --ia32",
-    "release": "build --mac -p always"
+    "dev": "tauri dev",
+    "build": "tauri build",
+    "vite:dev": "vite",
+    "vite:build": "tsc --noEmit && vite build",
+    "preview:web": "vite --mode mock",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run && cargo test --manifest-path src-tauri/Cargo.toml",
+    "demo": "node scripts/make-demo-library.mjs",
+    "tauri": "tauri"
   },
   "devDependencies": {
-    "babel": "^6.5.2",
-    "babel-core": "^6.18.2",
-    "babel-loader": "^6.2.7",
-    "babel-preset-es2015": "^6.18.0",
-    "babel-preset-react": "^6.16.0",
-    "electron-builder": "^18.0.0",
-    "electron": "^1.6.8",
-    "json-loader": "^0.5.4",
-    "webpack": "^1.13.3",
-    "xml2js": "^0.4.0"
+    "@tailwindcss/vite": "^4.3.5",
+    "@tauri-apps/cli": "^2.12.6",
+    "@types/node": "^26.6.10",
+    "@types/react": "^19.3.2",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.3.0",
+    "tailwindcss": "^4.3.5",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.8",
+    "vitest": "^4.1.12"
   },
   "dependencies": {
-    "electron-analytics": "^0.1.2",
-    "electron-updater": "^1.4.2",
-    "episode-parser": "^1.2.0",
-    "filewalker": "^0.1.3",
-    "forEachAsync": "^3.0.0",
-    "image-downloader": "^2.0.3",
-    "mkdirp": "^0.5.1",
-    "nedb": "^1.8.0",
-    "omdbapi": "^2.0.1",
-    "opensubtitles-api": "^3.5.0",
-    "react": "^15.3.2",
-    "react-dom": "^15.3.2",
-    "tmdbapi": "^1.0.2"
-  },
-  "build": {
-    "appId": "com.moviemonkey",
-    "files": [
-      "**/*",
-      "!node_modules${/*}"
-    ],
-    "mac": {
-      "category": "public.app-category.entertainment",
-      "target": [
-        "zip",
-        "dmg"
-      ]
-    },
-    "publish": [
-      {
-        "provider": "github",
-        "owner": "shrihari",
-        "repo": "moviemonkey"
-      }
-    ]
+    "@tauri-apps/api": "^2.12.5",
+    "@tauri-apps/plugin-dialog": "^2.8.4",
+    "@tauri-apps/plugin-opener": "^2.7.3",
+    "clsx": "^2.1.1",
+    "cmdk": "^1.1.1",
+    "lucide-react": "^1.80.0",
+    "motion": "^14.14.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "zustand": "^5.1.0"
   }
 }

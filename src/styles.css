@@ -1,0 +1,230 @@
+@import 'tailwindcss';
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme inline {
+  --font-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', 'Segoe UI Variable', 'Segoe UI', system-ui, sans-serif;
+  --font-display: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter Display', 'Segoe UI Variable Display', system-ui, sans-serif;
+  --font-serif: 'New York', ui-serif, 'Iowan Old Style', 'Charter', Georgia, serif;
+  --font-mono: ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, monospace;
+
+  --color-window: var(--window);
+  --color-sidebar: var(--sidebar);
+  --color-pane: var(--pane);
+  --color-elev: var(--elev);
+  --color-sunken: var(--sunken);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-hover: var(--hover);
+  --color-active: var(--active);
+  --color-accent: var(--accent);
+  --color-accent-strong: var(--accent-strong);
+  --color-accent-ink: var(--accent-ink);
+  --color-danger: var(--danger);
+
+  --shadow-pane: 0 0 0 0.5px var(--line-strong), 0 1px 2px rgb(0 0 0 / 0.04), 0 8px 24px -12px rgb(0 0 0 / 0.12);
+  --shadow-pop: 0 0 0 0.5px var(--line-strong), 0 12px 40px -8px rgb(0 0 0 / 0.28), 0 4px 12px -4px rgb(0 0 0 / 0.12);
+  --shadow-poster: 0 1px 2px rgb(0 0 0 / 0.12), 0 8px 20px -10px rgb(0 0 0 / 0.35);
+  --shadow-poster-hover: 0 2px 4px rgb(0 0 0 / 0.12), 0 22px 40px -16px rgb(0 0 0 / 0.55);
+
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+:root {
+  --window: #e9e7e3;
+  --sidebar: rgb(236 234 230 / 0.92);
+  --pane: #fbfaf8;
+  --elev: #ffffff;
+  --sunken: #f3f1ee;
+  --ink: #1c1b1a;
+  --ink-2: #6b6863;
+  --ink-3: #a29e98;
+  --line: rgb(0 0 0 / 0.07);
+  --line-strong: rgb(0 0 0 / 0.12);
+  --hover: rgb(0 0 0 / 0.045);
+  --active: rgb(0 0 0 / 0.075);
+  --accent: #ffcb3d;
+  --accent-strong: #d99a00;
+  --accent-ink: #1f1600;
+  --danger: #e5484d;
+  color-scheme: light;
+}
+
+.dark {
+  --window: #1b1a19;
+  --sidebar: rgb(28 27 26 / 0.9);
+  --pane: #141312;
+  --elev: #1e1d1c;
+  --sunken: #0f0e0e;
+  --ink: #f3f1ee;
+  --ink-2: #a3a09a;
+  --ink-3: #6c6965;
+  --line: rgb(255 255 255 / 0.07);
+  --line-strong: rgb(255 255 255 / 0.12);
+  --hover: rgb(255 255 255 / 0.06);
+  --active: rgb(255 255 255 / 0.1);
+  --accent: #ffcb3d;
+  --accent-strong: #ffcb3d;
+  --accent-ink: #1f1600;
+  color-scheme: dark;
+}
+
+@layer base {
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+}
+
+body {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  color: var(--ink);
+  background: var(--window);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  cursor: default;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Inside Tauri the window is transparent so the sidebar gets native vibrancy. */
+html.tauri body {
+  background: transparent;
+}
+html.tauri {
+  --sidebar: transparent;
+}
+
+input,
+textarea,
+.selectable {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+button {
+  cursor: default;
+}
+
+img {
+  -webkit-user-drag: none;
+}
+
+:focus {
+  outline: none;
+}
+:focus-visible {
+  outline: 2px solid color-mix(in oklab, var(--accent) 80%, transparent);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+}
+
+/* Thin overlay-style scrollbars */
+.scroll {
+  overflow: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
+}
+.scroll::-webkit-scrollbar {
+  width: 11px;
+  height: 11px;
+}
+.scroll::-webkit-scrollbar-thumb {
+  background: var(--line-strong);
+  border: 3px solid transparent;
+  background-clip: padding-box;
+  border-radius: 99px;
+}
+.scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.glass {
+  background: rgb(20 20 20 / 0.38);
+  -webkit-backdrop-filter: blur(20px) saturate(1.6);
+  backdrop-filter: blur(20px) saturate(1.6);
+  border: 0.5px solid rgb(255 255 255 / 0.16);
+}
+
+.glass-light {
+  background: color-mix(in oklab, var(--elev) 78%, transparent);
+  -webkit-backdrop-filter: blur(24px) saturate(1.8);
+  backdrop-filter: blur(24px) saturate(1.8);
+}
+
+.poster-card {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 320px;
+}
+
+@keyframes shimmer {
+  from {
+    background-position: -200% 0;
+  }
+  to {
+    background-position: 200% 0;
+  }
+}
+.shimmer {
+  background: linear-gradient(90deg, var(--sunken) 0%, var(--hover) 50%, var(--sunken) 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.6s linear infinite;
+}
+
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-2deg);
+  }
+  50% {
+    transform: translateY(-10px) rotate(2deg);
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.line-clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+input[type='range'].slider {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  border-radius: 99px;
+  background: var(--active);
+}
+input[type='range'].slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 99px;
+  background: var(--elev);
+  box-shadow: 0 0 0 0.5px var(--line-strong), 0 1px 3px rgb(0 0 0 / 0.3);
+}
