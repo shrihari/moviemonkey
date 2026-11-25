@@ -1,6 +1,13 @@
-import { motion } from 'motion/react';
-import { ArrowDownWideNarrow, ArrowUpNarrowWide, Bookmark, Clapperboard, Heart, Image as ImageIcon, Tv } from 'lucide-react';
-import { useMemo } from 'react';
+import {
+  ArrowDownWideNarrow,
+  ArrowUpNarrowWide,
+  Bookmark,
+  Clapperboard,
+  Heart,
+  Image as ImageIcon,
+  Tv,
+} from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
 import { PosterCard } from '../components/PosterCard';
 import { Dropdown, IconButton, Segmented, SelectButton } from '../components/ui';
 import { applyFilterSort, routeTitle, titlesFor, useStore, type Filter, type Route, type SortKey } from '../lib/store';
@@ -21,6 +28,7 @@ export function GridView({ route, titles }: { route: Route; titles: TitleSummary
   const base = useMemo(() => titlesFor(route, titles), [route, titles]);
   const shown = useMemo(() => applyFilterSort(base, filter, sort, sortDesc), [base, filter, sort, sortDesc]);
   const size = base.reduce((a, t) => a + t.totalSize, 0);
+  const limit = useProgressive(shown.length, route);
 
   return (
     <div className="relative min-h-full">
@@ -29,7 +37,12 @@ export function GridView({ route, titles }: { route: Route; titles: TitleSummary
         <p className="text-[13px] text-ink-2 mt-1">
           {plural(base.length, 'title')}
           {size > 0 && <> · {bytes(size)}</>}
-          {filter !== 'all' && <> · showing {shown.length} {filter}</>}
+          {filter !== 'all' && (
+            <>
+              {' '}
+              · showing {shown.length} {filter}
+            </>
+          )}
         </p>
       </header>
 
@@ -40,15 +53,10 @@ export function GridView({ route, titles }: { route: Route; titles: TitleSummary
           className="grid gap-x-6 gap-y-8 px-10 pb-32"
           style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${posterSize}px, 1fr))` }}
         >
-          {shown.map((t, i) => (
-            <motion.div
-              key={t.id}
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.45, delay: Math.min(i, 24) * 0.018, ease: [0.16, 1, 0.3, 1] }}
-            >
+          {shown.slice(0, limit).map((t, i) => (
+            <div key={t.id} className="card-in" style={{ '--i': Math.min(i, 24) } as React.CSSProperties}>
               <PosterCard t={t} eager={i < 18} />
-            </motion.div>
+            </div>
           ))}
         </div>
       )}
@@ -77,7 +85,11 @@ export function GridView({ route, titles }: { route: Route; titles: TitleSummary
               onSelect: () => setPrefs({ sort: s.value, sortDesc: s.value === 'title' ? false : true }),
             }))}
           />
-          <IconButton label={sortDesc ? 'Descending' : 'Ascending'} onClick={() => setPrefs({ sortDesc: !sortDesc })} className="size-7">
+          <IconButton
+            label={sortDesc ? 'Descending' : 'Ascending'}
+            onClick={() => setPrefs({ sortDesc: !sortDesc })}
+            className="size-7"
+          >
             {sortDesc ? <ArrowDownWideNarrow className="size-4" /> : <ArrowUpNarrowWide className="size-4" />}
           </IconButton>
           <div className="w-px h-5 bg-line-strong mx-1" />
@@ -98,9 +110,33 @@ export function GridView({ route, titles }: { route: Route; titles: TitleSummary
   );
 }
 
+/**
+ * Render the first screenful immediately and the rest in chunks on later
+ * frames, so switching to a 2,000-title view feels instant.
+ */
+function useProgressive(total: number, resetKey: unknown): number {
+  const FIRST = 60;
+  const STEP = 240;
+  const [limit, setLimit] = useState(FIRST);
+  useEffect(() => setLimit(FIRST), [resetKey]);
+  useEffect(() => {
+    if (limit >= total) return;
+    const id = requestAnimationFrame(() => setLimit((l) => l + STEP));
+    return () => cancelAnimationFrame(id);
+  }, [limit, total]);
+  return limit;
+}
+
 function EmptyCollection({ route, filtered }: { route: Route; filtered: boolean }) {
   const setPrefs = useStore((s) => s.setPrefs);
-  const Icon = route.name === 'watchlist' ? Bookmark : route.name === 'favorites' ? Heart : route.name === 'shows' ? Tv : Clapperboard;
+  const Icon =
+    route.name === 'watchlist'
+      ? Bookmark
+      : route.name === 'favorites'
+        ? Heart
+        : route.name === 'shows'
+          ? Tv
+          : Clapperboard;
   const text = filtered
     ? 'Nothing matches this filter.'
     : route.name === 'watchlist'
@@ -115,7 +151,10 @@ function EmptyCollection({ route, filtered }: { route: Route; filtered: boolean 
       </div>
       <p className="text-ink-2 max-w-xs">{text}</p>
       {filtered && (
-        <button onClick={() => setPrefs({ filter: 'all' })} className="mt-3 text-[13px] font-medium text-ink underline underline-offset-4 decoration-line-strong">
+        <button
+          onClick={() => setPrefs({ filter: 'all' })}
+          className="mt-3 text-[13px] font-medium text-ink underline underline-offset-4 decoration-line-strong"
+        >
           Show all
         </button>
       )}

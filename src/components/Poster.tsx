@@ -55,13 +55,28 @@ export function Poster({
           )}
         />
       )}
-      <div className={clsx('pointer-events-none absolute inset-0 ring-1 ring-inset ring-black/10 dark:ring-white/10', rounded)} />
+      <div
+        className={clsx(
+          'pointer-events-none absolute inset-0 ring-1 ring-inset ring-black/10 dark:ring-white/10',
+          rounded,
+        )}
+      />
     </div>
   );
 }
 
 /** Fades in an image when it finishes loading; renders nothing on error. */
-export function FadeImg({ src, fallback, className, alt = '' }: { src: string | null | undefined; fallback?: string | null; className?: string; alt?: string }) {
+export function FadeImg({
+  src,
+  fallback,
+  className,
+  alt = '',
+}: {
+  src: string | null | undefined;
+  fallback?: string | null;
+  className?: string;
+  alt?: string;
+}) {
   const [state, setState] = useState<'loading' | 'ok' | 'error'>('loading');
   if (!src && !fallback) return null;
   if (state === 'error') return null;

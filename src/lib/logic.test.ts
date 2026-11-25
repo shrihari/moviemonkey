@@ -1,15 +1,41 @@
 import { describe, expect, it } from 'vitest';
 import { bytes, epCode, runtime } from './format';
-import { applyFilterSort, titlesFor, topGenres } from './store';
+import { applyFilterSort, searchLibrary, titlesFor, topGenres } from './store';
 import type { TitleSummary } from './types';
 
 const t = (p: Partial<TitleSummary>): TitleSummary =>
   ({
-    id: p.name ?? 'x', kind: 'movie', name: 'x', year: 2000, yearLabel: null, poster: null, posterAlt: null,
-    backdrop: null, logo: null, overview: null, rating: null, runtime: null, genres: [], directors: [], cast: [],
-    addedAt: 0, updatedAt: 0, fileCount: 1, totalSize: 0, episodeCount: 0, watchedEpisodes: 0, seasonCount: 0,
-    quality: null, hdr: false, online: true, watched: false, favorite: false, watchlist: false, userRating: null,
-    lastPlayedAt: null, ...p,
+    id: p.name ?? 'x',
+    kind: 'movie',
+    name: 'x',
+    year: 2000,
+    yearLabel: null,
+    poster: null,
+    posterAlt: null,
+    backdrop: null,
+    logo: null,
+    overview: null,
+    rating: null,
+    runtime: null,
+    genres: [],
+    directors: [],
+    cast: [],
+    addedAt: 0,
+    updatedAt: 0,
+    fileCount: 1,
+    totalSize: 0,
+    episodeCount: 0,
+    watchedEpisodes: 0,
+    seasonCount: 0,
+    quality: null,
+    hdr: false,
+    online: true,
+    watched: false,
+    favorite: false,
+    watchlist: false,
+    userRating: null,
+    lastPlayedAt: null,
+    ...p,
   }) as TitleSummary;
 
 describe('format', () => {
@@ -45,6 +71,21 @@ describe('library selectors', () => {
   it('filters by watched state and sorts by recency', () => {
     expect(applyFilterSort(lib, 'unwatched', 'added', true).map((x) => x.name)).toEqual(['The Matrix', 'Severance']);
     expect(applyFilterSort(lib, 'watched', 'added', true).map((x) => x.name)).toEqual(['Arrival']);
+  });
+
+  it('searches titles first, then people', () => {
+    const lib2 = [
+      t({ name: 'John Wick', rating: 7.4, cast: ['Keanu Reeves'] }),
+      t({ name: 'The Matrix', rating: 8.7, cast: ['Keanu Reeves', 'Carrie-Anne Moss'] }),
+      t({ name: 'Matrix Reloaded', rating: 7.2, cast: ['Keanu Reeves'] }),
+      t({ name: 'Arrival', rating: 7.9, directors: ['Denis Villeneuve'] }),
+    ];
+    expect(searchLibrary(lib2, 'matrix').map((h) => h.t.name)).toEqual(['Matrix Reloaded', 'The Matrix']);
+    const keanu = searchLibrary(lib2, 'keanu');
+    expect(keanu.map((h) => h.t.name)).toEqual(['The Matrix', 'John Wick', 'Matrix Reloaded']);
+    expect(keanu[0].via).toBe('Keanu Reeves');
+    expect(searchLibrary(lib2, 'villeneuve')[0].via).toBe('dir. Denis Villeneuve');
+    expect(searchLibrary(lib2, '')).toEqual([]);
   });
 
   it('counts genres', () => {

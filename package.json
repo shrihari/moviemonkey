@@ -20,7 +20,10 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run && cargo test --manifest-path src-tauri/Cargo.toml",
     "demo": "node scripts/make-demo-library.mjs",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "format": "prettier --write src && cargo fmt --manifest-path src-tauri/Cargo.toml",
+    "lint": "tsc --noEmit && prettier --check src && cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings",
+    "test:live": "cargo test --manifest-path src-tauri/Cargo.toml --test identify_live -- --ignored --nocapture"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.5",
@@ -29,6 +32,7 @@
     "@types/react": "^19.3.2",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.3.0",
+    "prettier": "^3.10.1",
     "tailwindcss": "^4.3.5",
     "typescript": "^7.0.2",
     "vite": "^8.3.8",

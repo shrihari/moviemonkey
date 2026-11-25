@@ -21,8 +21,10 @@ export function Button({
         size === 'sm' && 'h-7 px-2.5 text-[12px] rounded-lg',
         size === 'md' && 'h-8 px-3.5 text-[13px] rounded-[10px]',
         size === 'lg' && 'h-11 px-5 text-[14px] rounded-xl',
-        variant === 'primary' && 'bg-accent text-accent-ink hover:brightness-105 shadow-[0_1px_0_rgb(255_255_255/0.4)_inset,0_1px_2px_rgb(0_0_0/0.2)]',
-        variant === 'secondary' && 'bg-elev text-ink shadow-[0_0_0_0.5px_var(--line-strong),0_1px_2px_rgb(0_0_0/0.06)] hover:bg-sunken',
+        variant === 'primary' &&
+          'bg-accent text-accent-ink hover:brightness-105 shadow-[0_1px_0_rgb(255_255_255/0.4)_inset,0_1px_2px_rgb(0_0_0/0.2)]',
+        variant === 'secondary' &&
+          'bg-elev text-ink shadow-[0_0_0_0.5px_var(--line-strong),0_1px_2px_rgb(0_0_0/0.06)] hover:bg-sunken',
         variant === 'ghost' && 'text-ink-2 hover:text-ink hover:bg-hover',
         variant === 'glass' && 'glass text-white hover:bg-white/20',
         variant === 'white' && 'bg-white text-black hover:bg-white/90 shadow-[0_2px_10px_rgb(0_0_0/0.25)]',
@@ -98,7 +100,15 @@ export function Segmented<T extends string>({
   );
 }
 
-export function Badge({ children, tone = 'default', className }: { children: ReactNode; tone?: 'default' | 'accent' | 'glass' | 'outline'; className?: string }) {
+export function Badge({
+  children,
+  tone = 'default',
+  className,
+}: {
+  children: ReactNode;
+  tone?: 'default' | 'accent' | 'glass' | 'outline';
+  className?: string;
+}) {
   return (
     <span
       className={clsx(

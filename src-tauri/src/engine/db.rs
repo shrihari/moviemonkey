@@ -123,9 +123,17 @@ impl Db {
     // ---------------------------------------------------------------- folders
 
     pub fn folders(&self) -> Result<Vec<FolderRow>> {
-        let mut st = self.conn.prepare("SELECT id, path, added_at FROM folders ORDER BY added_at")?;
+        let mut st = self
+            .conn
+            .prepare("SELECT id, path, added_at FROM folders ORDER BY added_at")?;
         let rows = st
-            .query_map([], |r| Ok(FolderRow { id: r.get(0)?, path: r.get(1)?, added_at: r.get(2)? }))?
+            .query_map([], |r| {
+                Ok(FolderRow {
+                    id: r.get(0)?,
+                    path: r.get(1)?,
+                    added_at: r.get(2)?,
+                })
+            })?
             .collect::<rusqlite::Result<Vec<_>>>()?;
         Ok(rows)
     }
@@ -135,11 +143,14 @@ impl Db {
             "INSERT OR IGNORE INTO folders(path, added_at) VALUES (?1, ?2)",
             params![path, now()],
         )?;
-        Ok(self.conn.query_row("SELECT id FROM folders WHERE path = ?1", params![path], |r| r.get(0))?)
+        Ok(self
+            .conn
+            .query_row("SELECT id FROM folders WHERE path = ?1", params![path], |r| r.get(0))?)
     }
 
     pub fn remove_folder(&self, id: i64) -> Result<()> {
-        self.conn.execute("DELETE FROM files WHERE folder_id = ?1", params![id])?;
+        self.conn
+            .execute("DELETE FROM files WHERE folder_id = ?1", params![id])?;
         self.conn.execute("DELETE FROM folders WHERE id = ?1", params![id])?;
         self.prune_titles()?;
         Ok(())
@@ -171,7 +182,9 @@ impl Db {
 
     pub fn files(&self) -> Result<Vec<FileRow>> {
         let mut st = self.conn.prepare(&format!("SELECT {} FROM files", Self::FILE_COLS))?;
-        let rows = st.query_map([], Self::file_from_row)?.collect::<rusqlite::Result<Vec<_>>>()?;
+        let rows = st
+            .query_map([], Self::file_from_row)?
+            .collect::<rusqlite::Result<Vec<_>>>()?;
         Ok(rows)
     }
 
@@ -277,7 +290,14 @@ impl Db {
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?6)
              ON CONFLICT(id) DO UPDATE SET kind = excluded.kind, name = excluded.name, year = excluded.year,
                meta = excluded.meta, updated_at = excluded.updated_at",
-            params![meta.id, meta.kind.as_str(), meta.name, meta.year, serde_json::to_string(meta)?, t],
+            params![
+                meta.id,
+                meta.kind.as_str(),
+                meta.name,
+                meta.year,
+                serde_json::to_string(meta)?,
+                t
+            ],
         )?;
         Ok(())
     }
@@ -319,9 +339,11 @@ impl Db {
     pub fn title_kind(&self, id: &str) -> Result<Option<TitleKind>> {
         Ok(self
             .conn
-            .query_row("SELECT kind FROM titles WHERE id = ?1", params![id], |r| r.get::<_, String>(0))
+            .query_row("SELECT kind FROM titles WHERE id = ?1", params![id], |r| {
+                r.get::<_, String>(0)
+            })
             .optional()?
-            .map(|k| TitleKind::from_str(&k)))
+            .map(|k| TitleKind::from_db(&k)))
     }
 
     // ------------------------------------------------------------- user state
@@ -441,12 +463,32 @@ mod tests {
         db.insert_file(f, "/movies/Heat.1995.1080p.mkv", 10, 1, &p).unwrap();
         assert_eq!(db.files_with_status("pending").unwrap().len(), 1);
 
-        let meta = TitleMeta { id: "tt0113277".into(), name: "Heat".into(), year: Some(1995), ..Default::default() };
+        let meta = TitleMeta {
+            id: "tt0113277".into(),
+            name: "Heat".into(),
+            year: Some(1995),
+            ..Default::default()
+        };
         db.upsert_title(&meta).unwrap();
-        db.set_file_match("/movies/Heat.1995.1080p.mkv", "matched", Some("tt0113277"), Some(0.9), None).unwrap();
+        db.set_file_match(
+            "/movies/Heat.1995.1080p.mkv",
+            "matched",
+            Some("tt0113277"),
+            Some(0.9),
+            None,
+        )
+        .unwrap();
         assert_eq!(db.files_for_title("tt0113277").unwrap().len(), 1);
 
-        let s = db.patch_state("tt0113277", &StatePatch { watched: Some(true), ..Default::default() }).unwrap();
+        let s = db
+            .patch_state(
+                "tt0113277",
+                &StatePatch {
+                    watched: Some(true),
+                    ..Default::default()
+                },
+            )
+            .unwrap();
         assert!(s.watched && s.watched_at.is_some());
         db.record_play("tt0113277").unwrap();
         assert_eq!(db.state("tt0113277").unwrap().play_count, 1);

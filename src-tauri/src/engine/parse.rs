@@ -50,8 +50,8 @@ impl Parsed {
 }
 
 pub const VIDEO_EXTENSIONS: &[&str] = &[
-    "mkv", "mp4", "m4v", "avi", "mov", "wmv", "mpg", "mpeg", "m2ts", "mts", "ts", "webm", "flv",
-    "divx", "ogm", "ogv", "3gp", "iso", "rmvb",
+    "mkv", "mp4", "m4v", "avi", "mov", "wmv", "mpg", "mpeg", "m2ts", "mts", "ts", "webm", "flv", "divx", "ogm", "ogv",
+    "3gp", "iso", "rmvb",
 ];
 
 pub fn is_video_file(path: &Path) -> bool {
@@ -65,33 +65,24 @@ fn re(s: &str) -> Regex {
     Regex::new(s).expect("valid regex")
 }
 
-static LEADING_BRACKETS: LazyLock<Regex> =
-    LazyLock::new(|| re(r"^\s*(?:[\[\{【][^\]\}】]*[\]\}】]\s*[-_.]?\s*)+"));
+static LEADING_BRACKETS: LazyLock<Regex> = LazyLock::new(|| re(r"^\s*(?:[\[\{【][^\]\}】]*[\]\}】]\s*[-_.]?\s*)+"));
 static LEADING_SITE: LazyLock<Regex> =
     LazyLock::new(|| re(r"(?i)^\s*(?:www\.)?[a-z0-9-]+\.(?:com|org|net|to|mx|ag|se|me|cc|in|io)\s*[-_]+\s*"));
 static SPACES: LazyLock<Regex> = LazyLock::new(|| re(r"\s+"));
 static ACRONYM: LazyLock<Regex> = LazyLock::new(|| re(r"\b(?:[A-Za-z] ){2,}[A-Za-z]\b"));
 
 // Episode patterns (applied to the normalised, space-separated string).
-static EP_SXXEXX: LazyLock<Regex> = LazyLock::new(|| {
-    re(r"(?i)\bs(\d{1,2}) ?e(\d{1,3})(?:(?: ?-? ?e| ?- ?)(\d{1,3}))?\b")
-});
+static EP_SXXEXX: LazyLock<Regex> =
+    LazyLock::new(|| re(r"(?i)\bs(\d{1,2}) ?e(\d{1,3})(?:(?: ?-? ?e| ?- ?)(\d{1,3}))?\b"));
 static EP_NXNN: LazyLock<Regex> = LazyLock::new(|| re(r"(?i)\b(\d{1,2})x(\d{2,3})\b"));
-static EP_WORDS: LazyLock<Regex> = LazyLock::new(|| {
-    re(r"(?i)\bseason ?(\d{1,2}) ?(?:-|,)? ?episode ?(\d{1,3})\b")
-});
-static EP_ANIME: LazyLock<Regex> =
-    LazyLock::new(|| re(r"\s-\s(\d{1,3})(?:v\d)?(?:\s|$|\[|\()"));
-static SEASON_ONLY: LazyLock<Regex> =
-    LazyLock::new(|| re(r"(?i)\b(?:s|season ?|series ?)(\d{1,2})\b"));
-static SEASON_FOLDER: LazyLock<Regex> = LazyLock::new(|| {
-    re(r"(?i)^\s*(?:season|series|staffel|saison|temporada|s)[ ._-]*(\d{1,2})\b")
-});
+static EP_WORDS: LazyLock<Regex> = LazyLock::new(|| re(r"(?i)\bseason ?(\d{1,2}) ?(?:-|,)? ?episode ?(\d{1,3})\b"));
+static EP_ANIME: LazyLock<Regex> = LazyLock::new(|| re(r"\s-\s(\d{1,3})(?:v\d)?(?:\s|$|\[|\()"));
+static SEASON_ONLY: LazyLock<Regex> = LazyLock::new(|| re(r"(?i)\b(?:s|season ?|series ?)(\d{1,2})\b"));
+static SEASON_FOLDER: LazyLock<Regex> =
+    LazyLock::new(|| re(r"(?i)^\s*(?:season|series|staffel|saison|temporada|s)[ ._-]*(\d{1,2})\b"));
 static SPECIALS_FOLDER: LazyLock<Regex> = LazyLock::new(|| re(r"(?i)^\s*specials?\s*$"));
-static EPISODE_IN_STEM: LazyLock<Regex> =
-    LazyLock::new(|| re(r"(?i)^\s*(?:e|ep|episode)?[ ._-]*(\d{1,3})\b"));
-static EPISODE_E_ANYWHERE: LazyLock<Regex> =
-    LazyLock::new(|| re(r"(?i)\b(?:e|ep|episode)[ ._-]?(\d{1,3})\b"));
+static EPISODE_IN_STEM: LazyLock<Regex> = LazyLock::new(|| re(r"(?i)^\s*(?:e|ep|episode)?[ ._-]*(\d{1,3})\b"));
+static EPISODE_E_ANYWHERE: LazyLock<Regex> = LazyLock::new(|| re(r"(?i)\b(?:e|ep|episode)[ ._-]?(\d{1,3})\b"));
 
 static YEAR: LazyLock<Regex> = LazyLock::new(|| re(r"\b(19[0-9]{2}|20[0-9]{2})\b"));
 
@@ -108,32 +99,43 @@ static HARD_MARKERS: LazyLock<Regex> = LazyLock::new(|| {
 });
 static BRACKET_OPEN: LazyLock<Regex> = LazyLock::new(|| re(r"[\[\(\{]"));
 
-static RES: LazyLock<Regex> =
-    LazyLock::new(|| re(r"(?i)\b(2160p|1080p|1080i|720p|576p|480p|4k|uhd)\b"));
+static RES: LazyLock<Regex> = LazyLock::new(|| re(r"(?i)\b(2160p|1080p|1080i|720p|576p|480p|4k|uhd)\b"));
 static SOURCE: LazyLock<Regex> = LazyLock::new(|| {
     re(r"(?i)\b(bd-?remux|remux|blu-?ray|bdrip|brrip|web-?dl|webdl|web-?rip|hdtv|dvd-?rip|hdrip|hdcam|dvdscr|web)\b")
 });
-static CODEC: LazyLock<Regex> =
-    LazyLock::new(|| re(r"(?i)\b(x ?264|x ?265|h ?264|h ?265|hevc|avc|av1|xvid|divx)\b"));
-static HDR: LazyLock<Regex> =
-    LazyLock::new(|| re(r"(?i)\b(hdr10\+|hdr10|hdr|dovi|dv|dolby ?vision)\b"));
+static CODEC: LazyLock<Regex> = LazyLock::new(|| re(r"(?i)\b(x ?264|x ?265|h ?264|h ?265|hevc|avc|av1|xvid|divx)\b"));
+static HDR: LazyLock<Regex> = LazyLock::new(|| re(r"(?i)\b(hdr10\+|hdr10|hdr|dovi|dv|dolby ?vision)\b"));
 static AUDIO: LazyLock<Regex> = LazyLock::new(|| {
     re(r"(?i)\b(atmos|truehd|dts-?hd(?: ?ma)?|dts-?x|dts|ddp ?[257] ?1|dd ?[257] ?1|eac3|ac3|aac|flac|opus)\b")
 });
 static EDITION: LazyLock<Regex> = LazyLock::new(|| {
-    re(r"(?i)\b(directors? ?cut|extended ?(?:cut|edition)?|unrated|uncut|remastered|theatrical ?cut|imax|criterion|final ?cut|special ?edition)\b")
+    re(
+        r"(?i)\b(directors? ?cut|extended ?(?:cut|edition)?|unrated|uncut|remastered|theatrical ?cut|imax|criterion|final ?cut|special ?edition)\b",
+    )
 });
 static PART: LazyLock<Regex> = LazyLock::new(|| re(r"(?i)\b(?:cd|disc|disk)[ ._-]?(\d)\b"));
 static SAMPLE: LazyLock<Regex> = LazyLock::new(|| re(r"(?i)(?:^|[ ._-])sample(?:$|[ ._-])"));
-static PLEX_EXTRA_SUFFIX: LazyLock<Regex> = LazyLock::new(|| {
-    re(r"(?i)-(trailer|featurette|behindthescenes|deleted|interview|scene|short|extra|other)$")
-});
+static PLEX_EXTRA_SUFFIX: LazyLock<Regex> =
+    LazyLock::new(|| re(r"(?i)-(trailer|featurette|behindthescenes|deleted|interview|scene|short|extra|other)$"));
 static COUNTRY_SUFFIX: LazyLock<Regex> = LazyLock::new(|| re(r"(?i)\s+(?:US|UK|AU|NZ|CA)$"));
 
 const EXTRA_FOLDERS: &[&str] = &[
-    "extras", "extra", "featurettes", "featurette", "behind the scenes", "deleted scenes",
-    "interviews", "scenes", "shorts", "trailers", "trailer", "other", "bonus", "specials features",
-    "sample", "samples",
+    "extras",
+    "extra",
+    "featurettes",
+    "featurette",
+    "behind the scenes",
+    "deleted scenes",
+    "interviews",
+    "scenes",
+    "shorts",
+    "trailers",
+    "trailer",
+    "other",
+    "bonus",
+    "specials features",
+    "sample",
+    "samples",
 ];
 
 const GENERIC_STEMS: &[&str] = &["movie", "film", "video", "feature", "main", "title", "cd1", "cd2"];
@@ -166,13 +168,15 @@ fn normalise(raw: &str) -> String {
 }
 
 fn clean_title(t: &str) -> String {
-    let t = t.trim().trim_matches(|c: char| c == '-' || c == ':' || c == ',' || c.is_whitespace());
+    let t = t
+        .trim()
+        .trim_matches(|c: char| c == '-' || c == ':' || c == ',' || c.is_whitespace());
     let t = t.trim_end_matches(|c: char| c == '(' || c == '[' || c == '{' || c.is_whitespace());
     let t = t.trim_end_matches(" -").trim();
     SPACES.replace_all(t, " ").to_string()
 }
 
-fn first_capture<'a>(re: &Regex, s: &'a str) -> Option<String> {
+fn first_capture(re: &Regex, s: &str) -> Option<String> {
     re.captures(s).and_then(|c| c.get(1)).map(|m| m.as_str().to_string())
 }
 
@@ -344,7 +348,9 @@ pub fn parse_name(raw: &str) -> Parsed {
 }
 
 fn dir_name(path: Option<&Path>) -> Option<String> {
-    path.and_then(|p| p.file_name()).and_then(|n| n.to_str()).map(|s| s.to_string())
+    path.and_then(|p| p.file_name())
+        .and_then(|n| n.to_str())
+        .map(|s| s.to_string())
 }
 
 fn looks_generic(p: &Parsed) -> bool {
@@ -378,9 +384,7 @@ pub fn parse_path(path: &Path) -> Parsed {
         if SPECIALS_FOLDER.is_match(n) {
             Some(0)
         } else {
-            SEASON_FOLDER
-                .captures(n)
-                .and_then(|c| c[1].parse::<u32>().ok())
+            SEASON_FOLDER.captures(n).and_then(|c| c[1].parse::<u32>().ok())
         }
     });
 
@@ -434,7 +438,8 @@ pub fn parse_path(path: &Path) -> Parsed {
             let stem_weak = looks_generic(&p) || p.year.is_none() && stem.len() <= 12;
             if !pp.title.is_empty()
                 && pp.kind == ParsedKind::Movie
-                && (stem_weak && parent_is_release || p.year.is_none() && pp.year.is_some() && same_title(&p.title, &pp.title))
+                && (stem_weak && parent_is_release
+                    || p.year.is_none() && pp.year.is_some() && same_title(&p.title, &pp.title))
             {
                 p.title = pp.title.clone();
                 p.year = pp.year;
@@ -449,7 +454,10 @@ pub fn parse_path(path: &Path) -> Parsed {
 
     // Season packs: "Show.S02.1080p/..." → fill missing season
     if p.kind == ParsedKind::Episode && p.season.is_none() {
-        if let Some(c) = parent_name.as_deref().and_then(|n| SEASON_ONLY.captures(&normalise(n)).map(|c| c[1].to_string())) {
+        if let Some(c) = parent_name
+            .as_deref()
+            .and_then(|n| SEASON_ONLY.captures(&normalise(n)).map(|c| c[1].to_string()))
+        {
             p.season = c.parse().ok();
         }
     }
@@ -463,6 +471,25 @@ pub fn search_title(p: &Parsed) -> String {
         COUNTRY_SUFFIX.replace(&p.title, "").to_string()
     } else {
         p.title.clone()
+    }
+}
+
+/// ISO country code implied by a trailing "US"/"UK"… on a show title.
+pub fn country_hint(p: &Parsed) -> Option<&'static str> {
+    if p.kind != ParsedKind::Episode {
+        return None;
+    }
+    let last = p.title.rsplit(' ').next()?.to_ascii_uppercase();
+    if p.title.split(' ').count() < 2 {
+        return None;
+    }
+    match last.as_str() {
+        "US" => Some("US"),
+        "UK" => Some("GB"),
+        "AU" => Some("AU"),
+        "NZ" => Some("NZ"),
+        "CA" => Some("CA"),
+        _ => None,
     }
 }
 
@@ -614,6 +641,9 @@ mod tests {
         let p = name("the.office.us.s03e12.720p.hdtv");
         assert_eq!(p.title, "the office us");
         assert_eq!(search_title(&p), "the office");
+        assert_eq!(country_hint(&p), Some("US"));
+        assert_eq!(country_hint(&name("The.Office.UK.S01E01")), Some("GB"));
+        assert_eq!(country_hint(&name("Breaking.Bad.S01E01")), None);
         let p = name("Friends - 1x05 - The One with the East German Laundry Detergent");
         assert_eq!(p.title, "Friends");
         assert_eq!((p.season, p.episode), (Some(1), Some(5)));
@@ -685,7 +715,10 @@ mod tests {
 
     #[test]
     fn compare_normalisation() {
-        assert_eq!(normalise_for_compare("The Lord of the Rings: The Fellowship"), "lord of the rings the fellowship");
+        assert_eq!(
+            normalise_for_compare("The Lord of the Rings: The Fellowship"),
+            "lord of the rings the fellowship"
+        );
         assert_eq!(normalise_for_compare("Fast & Furious"), "fast and furious");
         assert!(is_video_file(Path::new("/a/b.MKV")));
         assert!(!is_video_file(Path::new("/a/b.srt")));

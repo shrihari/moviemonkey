@@ -12,16 +12,64 @@ export function titleMenu(t: TitleSummary): MenuItem[] {
   return [
     { label: 'Play', icon: <Play />, onSelect: () => playTitle(t) },
     { separator: true, label: '' },
-    { label: t.watched ? 'Mark as unwatched' : 'Mark as watched', icon: t.watched ? <EyeOff /> : <Eye />, onSelect: () => toggleWatched(t) },
-    { label: t.watchlist ? 'Remove from Watchlist' : 'Add to Watchlist', icon: <Bookmark />, onSelect: () => toggleWatchlist(t) },
-    { label: t.favorite ? 'Remove from Favorites' : 'Add to Favorites', icon: <Heart />, onSelect: () => toggleFavorite(t) },
+    {
+      label: t.watched ? 'Mark as unwatched' : 'Mark as watched',
+      icon: t.watched ? <EyeOff /> : <Eye />,
+      onSelect: () => toggleWatched(t),
+    },
+    {
+      label: t.watchlist ? 'Remove from Watchlist' : 'Add to Watchlist',
+      icon: <Bookmark />,
+      onSelect: () => toggleWatchlist(t),
+    },
+    {
+      label: t.favorite ? 'Remove from Favorites' : 'Add to Favorites',
+      icon: <Heart />,
+      onSelect: () => toggleFavorite(t),
+    },
     { separator: true, label: '' },
     { label: 'Show in Finder', icon: <FolderOpen />, onSelect: () => revealTitle(t) },
     { label: 'Fix match…', icon: <Wand2 />, onSelect: () => fixMatch(t) },
   ];
 }
 
-export const PosterCard = memo(function PosterCard({ t, eager, showMeta = true }: { t: TitleSummary; eager?: boolean; showMeta?: boolean }) {
+// Fields a card actually displays. The library is refetched on every change,
+// so object identity changes constantly; compare what matters instead.
+const CARD_FIELDS = [
+  'id',
+  'name',
+  'year',
+  'yearLabel',
+  'poster',
+  'posterAlt',
+  'rating',
+  'kind',
+  'quality',
+  'hdr',
+  'online',
+  'watched',
+  'watchlist',
+  'favorite',
+  'episodeCount',
+  'watchedEpisodes',
+] as const;
+
+function sameCard(
+  a: { t: TitleSummary; eager?: boolean; showMeta?: boolean },
+  b: { t: TitleSummary; eager?: boolean; showMeta?: boolean },
+) {
+  return a.eager === b.eager && a.showMeta === b.showMeta && CARD_FIELDS.every((k) => a.t[k] === b.t[k]);
+}
+
+export const PosterCard = memo(function PosterCard({
+  t,
+  eager,
+  showMeta = true,
+}: {
+  t: TitleSummary;
+  eager?: boolean;
+  showMeta?: boolean;
+}) {
   const openTitle = useStore((s) => s.openTitle);
   const showMenu = useContextMenu((s) => s.show);
   const onContext = (e: MouseEvent) => {
@@ -40,8 +88,16 @@ export const PosterCard = memo(function PosterCard({ t, eager, showMeta = true }
 
         {/* badges */}
         <div className="absolute top-2 left-2 flex gap-1">
-          {t.quality === '4K' && <span className="h-[18px] px-1.5 rounded-[5px] bg-black/55 backdrop-blur-md text-white text-[10px] font-bold tracking-wide flex items-center">4K</span>}
-          {t.hdr && <span className="h-[18px] px-1.5 rounded-[5px] bg-black/55 backdrop-blur-md text-white text-[10px] font-bold tracking-wide flex items-center">HDR</span>}
+          {t.quality === '4K' && (
+            <span className="h-[18px] px-1.5 rounded-[5px] bg-black/55 backdrop-blur-md text-white text-[10px] font-bold tracking-wide flex items-center">
+              4K
+            </span>
+          )}
+          {t.hdr && (
+            <span className="h-[18px] px-1.5 rounded-[5px] bg-black/55 backdrop-blur-md text-white text-[10px] font-bold tracking-wide flex items-center">
+              HDR
+            </span>
+          )}
         </div>
         {t.watched && (
           <div className="absolute top-2 right-2 size-[22px] rounded-full bg-accent text-accent-ink flex items-center justify-center shadow-md">
@@ -83,11 +139,13 @@ export const PosterCard = memo(function PosterCard({ t, eager, showMeta = true }
         <div className="pt-2.5 px-0.5">
           <div className="text-[13px] font-medium text-ink truncate leading-tight">{t.name}</div>
           <div className={clsx('mt-1 text-[12px] text-ink-2 flex items-center gap-1.5 truncate')}>
-            <span>{t.kind === 'series' ? t.yearLabel ?? t.year : t.year}</span>
+            <span>{t.kind === 'series' ? (t.yearLabel ?? t.year) : t.year}</span>
             {t.kind === 'series' && t.episodeCount > 0 && (
               <>
                 <span className="text-ink-3">·</span>
-                <span>{t.episodeCount} ep{t.episodeCount === 1 ? '' : 's'}</span>
+                <span>
+                  {t.episodeCount} ep{t.episodeCount === 1 ? '' : 's'}
+                </span>
               </>
             )}
             {t.rating ? (
@@ -104,7 +162,7 @@ export const PosterCard = memo(function PosterCard({ t, eager, showMeta = true }
       )}
     </div>
   );
-});
+}, sameCard);
 
 export function Star({ className = 'size-[11px] text-accent-strong' }: { className?: string }) {
   return (

@@ -18,7 +18,12 @@ async fn main() -> anyhow::Result<()> {
     let sink: Sink = Arc::new(|ev| {
         if let Event::Progress(p) = ev {
             if p.phase == "identifying" {
-                eprint!("\r  identifying {:>3}/{:<3} {:<50}", p.done, p.total, p.current.unwrap_or_default());
+                eprint!(
+                    "\r  identifying {:>3}/{:<3} {:<50}",
+                    p.done,
+                    p.total,
+                    p.current.unwrap_or_default()
+                );
             }
         }
     });
@@ -27,11 +32,22 @@ async fn main() -> anyhow::Result<()> {
     let root = std::fs::canonicalize(&folder)?.to_string_lossy().to_string();
     lib.add_folders(&[folder])?;
     lib.process(HashSet::from([Job::ScanAll])).await?;
-    eprintln!("\n  done in {:.1}s\n", started.elapsed().as_secs_f32());
+    let pr = lib.progress();
+    eprintln!(
+        "\n  done in {:.1}s: {} matched, {} need review, {} deferred (offline)\n",
+        started.elapsed().as_secs_f32(),
+        pr.matched,
+        pr.failed,
+        pr.deferred
+    );
 
     let snap = lib.snapshot()?;
     for t in &snap.titles {
-        let extra = if t.episode_count > 0 { format!("  [{} eps]", t.episode_count) } else { String::new() };
+        let extra = if t.episode_count > 0 {
+            format!("  [{} eps]", t.episode_count)
+        } else {
+            String::new()
+        };
         println!(
             "  {:<7} {:<11} {:<44} {:<6} {:>4} {}{}",
             t.kind.as_str(),
@@ -44,7 +60,10 @@ async fn main() -> anyhow::Result<()> {
         );
     }
     for u in &snap.unmatched {
-        println!("  UNMATCHED  {}  (guess: {} {:?})", u.file_name, u.guess_title, u.guess_year);
+        println!(
+            "  UNMATCHED  {}  (guess: {} {:?})",
+            u.file_name, u.guess_title, u.guess_year
+        );
     }
     println!(
         "\n  {} movies, {} shows ({} episodes), {} unmatched",

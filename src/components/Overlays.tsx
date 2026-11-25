@@ -28,8 +28,12 @@ export function DropOverlay() {
             >
               <FolderDown className="size-9" strokeWidth={1.8} />
             </motion.div>
-            <div className="mt-6 font-display text-[24px] font-semibold tracking-[-0.02em] text-ink">Drop to add to your library</div>
-            <div className="mt-1.5 text-[14px] text-ink-2">Folders of movies and TV shows, nested as deep as you like.</div>
+            <div className="mt-6 font-display text-[24px] font-semibold tracking-[-0.02em] text-ink">
+              Drop to add to your library
+            </div>
+            <div className="mt-1.5 text-[14px] text-ink-2">
+              Folders of movies and TV shows, nested as deep as you like.
+            </div>
           </motion.div>
         </motion.div>
       )}

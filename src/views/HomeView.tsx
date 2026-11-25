@@ -52,13 +52,19 @@ export function HomeView({ titles }: { titles: TitleSummary[] }) {
           <BackdropCard
             key={t.id}
             t={t}
-            caption={[t.kind === 'series' ? `${t.episodeCount} episodes` : t.year, t.quality, t.genres[0]].filter(Boolean).join(' · ')}
+            caption={[t.kind === 'series' ? `${t.episodeCount} episodes` : t.year, t.quality, t.genres[0]]
+              .filter(Boolean)
+              .join(' · ')}
           />
         ))}
       </Row>
 
       {rows.unwatchedGems.length > 0 && (
-        <Row title="Unwatched gems" subtitle="Highly rated movies you haven’t seen yet" onSeeAll={() => navigate({ name: 'unwatched' })}>
+        <Row
+          title="Unwatched gems"
+          subtitle="Highly rated movies you haven’t seen yet"
+          onSeeAll={() => navigate({ name: 'unwatched' })}
+        >
           {rows.unwatchedGems.slice(0, 20).map((t) => (
             <PosterRowItem key={t.id} t={t} />
           ))}

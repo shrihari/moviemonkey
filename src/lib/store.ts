@@ -67,7 +67,17 @@ interface State extends Prefs {
   addFolders(paths?: string[]): Promise<void>;
 }
 
-const idle: Progress = { active: false, phase: 'idle', done: 0, total: 0, current: null, found: 0, matched: 0, failed: 0 };
+const idle: Progress = {
+  active: false,
+  phase: 'idle',
+  done: 0,
+  total: 0,
+  current: null,
+  found: 0,
+  matched: 0,
+  failed: 0,
+  deferred: 0,
+};
 
 let toastId = 0;
 
@@ -165,7 +175,10 @@ export const useStore = create<State>()(
         try {
           const ids = await api.addFolders(chosen);
           if (!ids.length) get().toast('Those folders are already in your library');
-          else get().toast(`Scanning ${chosen.length === 1 ? chosen[0].split(/[\\/]/).pop() : `${chosen.length} folders`}…`);
+          else
+            get().toast(
+              `Scanning ${chosen.length === 1 ? chosen[0].split(/[\\/]/).pop() : `${chosen.length} folders`}…`,
+            );
           await get().refresh();
         } catch (e) {
           get().toast(`Couldn't add folder: ${e}`, 'error');
@@ -229,6 +242,44 @@ export function topGenres(titles: TitleSummary[], n = 12): { genre: string; coun
     .map(([genre, count]) => ({ genre, count }))
     .sort((a, b) => b.count - a.count || a.genre.localeCompare(b.genre))
     .slice(0, n);
+}
+
+export interface SearchHit {
+  t: TitleSummary;
+  /** Why it matched when it wasn't the title ("Keanu Reeves", "dir. Denis Villeneuve"). */
+  via: string | null;
+}
+
+/**
+ * Library search for the command palette: every word must match somewhere;
+ * title-prefix matches rank first, then title matches, then people/genre/year.
+ */
+export function searchLibrary(titles: TitleSummary[], query: string, limit = 40): SearchHit[] {
+  const words = query.toLowerCase().split(/\s+/).filter(Boolean);
+  if (!words.length) return [];
+  const scored: { hit: SearchHit; rank: number }[] = [];
+  for (const t of titles) {
+    const name = t.name.toLowerCase();
+    const people = [...t.cast, ...t.directors.map((d) => `dir. ${d}`)];
+    const hay = [
+      name,
+      String(t.year ?? ''),
+      ...people,
+      ...t.genres,
+      t.kind === 'series' ? 'tv show series' : 'movie film',
+    ]
+      .join(' | ')
+      .toLowerCase();
+    if (!words.every((w) => hay.includes(w))) continue;
+    const q = words.join(' ');
+    const rank = name.startsWith(q) ? 0 : name.includes(q) ? 1 : words.every((w) => name.includes(w)) ? 2 : 3;
+    const via = rank < 3 ? null : (people.find((p) => words.some((w) => p.toLowerCase().includes(w))) ?? null);
+    scored.push({ hit: { t, via }, rank });
+  }
+  return scored
+    .sort((a, b) => a.rank - b.rank || (b.hit.t.rating ?? 0) - (a.hit.t.rating ?? 0))
+    .slice(0, limit)
+    .map((x) => x.hit);
 }
 
 export function routeTitle(route: Route): string {

@@ -18,7 +18,15 @@ import { FadeImg, Poster } from '../components/Poster';
 import { PosterRowItem, Row } from '../components/Row';
 import { Star } from '../components/PosterCard';
 import { Badge, Button, Dropdown, IconButton, Spinner } from '../components/ui';
-import { fixMatch, imdbUrl, playPath, playTarget, toggleFavorite, toggleWatched, toggleWatchlist } from '../lib/actions';
+import {
+  fixMatch,
+  imdbUrl,
+  playPath,
+  playTarget,
+  toggleFavorite,
+  toggleWatched,
+  toggleWatchlist,
+} from '../lib/actions';
 import { api } from '../lib/api';
 import { bytes, date, hue, runtime } from '../lib/format';
 import { img } from '../lib/img';
@@ -68,7 +76,9 @@ export function DetailView({ id }: { id: string }) {
               ) : (
                 <div
                   className="absolute inset-0 blur-3xl scale-125 opacity-70"
-                  style={{ background: `radial-gradient(circle at 30% 30%, hsl(${hue(t.name)} 40% 40%), transparent 70%)` }}
+                  style={{
+                    background: `radial-gradient(circle at 30% 30%, hsl(${hue(t.name)} 40% 40%), transparent 70%)`,
+                  }}
                 />
               )}
             </motion.div>
@@ -83,12 +93,23 @@ export function DetailView({ id }: { id: string }) {
           {t && (
             <div className="absolute inset-x-0 bottom-0 px-10 pb-16 flex items-end gap-8">
               <div className="hidden xl:block w-[180px] shrink-0 shadow-[0_24px_60px_-20px_rgb(0_0_0/0.7)] rounded-[12px]">
-                <Poster src={t.poster} fallback={t.posterAlt} title={t.name} year={t.year} rounded="rounded-[12px]" eager />
+                <Poster
+                  src={t.poster}
+                  fallback={t.posterAlt}
+                  title={t.name}
+                  year={t.year}
+                  rounded="rounded-[12px]"
+                  eager
+                />
               </div>
               <div className="flex-1 min-w-0 max-w-[680px]">
                 <TitleArt t={t} />
                 <MetaLine t={t} detail={detail} />
-                {t.overview && <p className="selectable mt-4 text-[14.5px] leading-relaxed text-white/85 line-clamp-3 max-w-[620px] drop-shadow">{t.overview}</p>}
+                {t.overview && (
+                  <p className="selectable mt-4 text-[14.5px] leading-relaxed text-white/85 line-clamp-3 max-w-[620px] drop-shadow">
+                    {t.overview}
+                  </p>
+                )}
                 <Actions t={t} detail={detail} />
               </div>
             </div>
@@ -116,7 +137,10 @@ export function DetailView({ id }: { id: string }) {
       </div>
 
       {/* Floating top bar */}
-      <motion.div data-tauri-drag-region className="absolute inset-x-0 top-0 h-[52px] flex items-center px-4 gap-3 pointer-events-none">
+      <motion.div
+        data-tauri-drag-region
+        className="absolute inset-x-0 top-0 h-[52px] flex items-center px-4 gap-3 pointer-events-none"
+      >
         <motion.div
           style={{ opacity: headerBg }}
           className="absolute inset-0 glass-light border-b border-line pointer-events-none"
@@ -165,7 +189,12 @@ function MetaLine({ t, detail }: { t: TitleSummary; detail: TitleDetail | null }
     );
   bits.push(<span key="y">{t.kind === 'series' ? t.yearLabel : t.year}</span>);
   if (t.kind === 'movie' && t.runtime) bits.push(<span key="rt">{runtime(t.runtime)}</span>);
-  if (t.kind === 'series') bits.push(<span key="s">{t.seasonCount} season{t.seasonCount === 1 ? '' : 's'} in library</span>);
+  if (t.kind === 'series')
+    bits.push(
+      <span key="s">
+        {t.seasonCount} season{t.seasonCount === 1 ? '' : 's'} in library
+      </span>,
+    );
   if (t.genres.length) bits.push(<span key="g">{t.genres.slice(0, 3).join(', ')}</span>);
   const file = detail?.files[0];
   return (
@@ -196,18 +225,37 @@ function Actions({ t, detail }: { t: TitleSummary; detail: TitleDetail | null })
         {target?.label ?? 'Play'}
       </Button>
       {detail?.trailer && (
-        <Button variant="glass" size="lg" onClick={() => api.openUrl(`https://www.youtube.com/watch?v=${detail.trailer}`)}>
+        <Button
+          variant="glass"
+          size="lg"
+          onClick={() => api.openUrl(`https://www.youtube.com/watch?v=${detail.trailer}`)}
+        >
           <MonitorPlay className="size-4" />
           Trailer
         </Button>
       )}
-      <IconButton tone="glass" label={t.watched ? 'Mark as unwatched' : 'Mark as watched'} onClick={() => toggleWatched(t)} className={clsx('size-11', t.watched && '!bg-accent !text-accent-ink !border-transparent')}>
+      <IconButton
+        tone="glass"
+        label={t.watched ? 'Mark as unwatched' : 'Mark as watched'}
+        onClick={() => toggleWatched(t)}
+        className={clsx('size-11', t.watched && '!bg-accent !text-accent-ink !border-transparent')}
+      >
         <Check className="size-[18px]" strokeWidth={2.5} />
       </IconButton>
-      <IconButton tone="glass" label={t.watchlist ? 'Remove from Watchlist' : 'Add to Watchlist'} onClick={() => toggleWatchlist(t)} className="size-11">
+      <IconButton
+        tone="glass"
+        label={t.watchlist ? 'Remove from Watchlist' : 'Add to Watchlist'}
+        onClick={() => toggleWatchlist(t)}
+        className="size-11"
+      >
         <Bookmark className="size-4" fill={t.watchlist ? 'currentColor' : 'none'} />
       </IconButton>
-      <IconButton tone="glass" label={t.favorite ? 'Remove from Favorites' : 'Add to Favorites'} onClick={() => toggleFavorite(t)} className={clsx('size-11', t.favorite && '!text-[#ff6b81]')}>
+      <IconButton
+        tone="glass"
+        label={t.favorite ? 'Remove from Favorites' : 'Add to Favorites'}
+        onClick={() => toggleFavorite(t)}
+        className={clsx('size-11', t.favorite && '!text-[#ff6b81]')}
+      >
         <Heart className="size-4" fill={t.favorite ? 'currentColor' : 'none'} />
       </IconButton>
       <Dropdown
@@ -218,7 +266,11 @@ function Actions({ t, detail }: { t: TitleSummary; detail: TitleDetail | null })
           </IconButton>
         )}
         items={[
-          { label: 'Show in Finder', icon: <FolderOpen />, onSelect: () => detail?.files[0] && api.reveal(detail.files[0].path) },
+          {
+            label: 'Show in Finder',
+            icon: <FolderOpen />,
+            onSelect: () => detail?.files[0] && api.reveal(detail.files[0].path),
+          },
           { label: 'Open on IMDb', icon: <ExternalLink />, onSelect: () => api.openUrl(imdbUrl(t.id)) },
           { separator: true, label: '' },
           {
@@ -263,7 +315,12 @@ function Episodes({ t, seasons }: { t: TitleSummary; seasons: SeasonView[] }) {
         <h2 className="font-display text-[19px] font-semibold tracking-[-0.01em] text-ink">Episodes</h2>
         <div className="flex-1" />
         <label className="flex items-center gap-2 text-[12px] text-ink-2">
-          <input type="checkbox" checked={!onlyLocal} onChange={(e) => setOnlyLocal(!e.target.checked)} className="accent-[var(--accent-strong)]" />
+          <input
+            type="checkbox"
+            checked={!onlyLocal}
+            onChange={(e) => setOnlyLocal(!e.target.checked)}
+            className="accent-[var(--accent-strong)]"
+          />
           Show missing episodes
         </label>
       </div>
@@ -284,7 +341,9 @@ function Episodes({ t, seasons }: { t: TitleSummary; seasons: SeasonView[] }) {
         ))}
       </div>
       <div className="divide-y divide-line">
-        {episodes.length === 0 && <p className="py-10 text-center text-ink-2">No episodes from this season in your library.</p>}
+        {episodes.length === 0 && (
+          <p className="py-10 text-center text-ink-2">No episodes from this season in your library.</p>
+        )}
         {episodes.map((e) => (
           <EpisodeRow key={`${e.season}-${e.episode}`} t={t} e={e} />
         ))}
@@ -306,7 +365,9 @@ function EpisodeRow({ t, e }: { t: TitleSummary; e: EpisodeView }) {
         {e.thumbnail ? (
           <FadeImg src={e.thumbnail} className="absolute inset-0 size-full object-cover" />
         ) : (
-          <div className="absolute inset-0 flex items-center justify-center font-serif text-ink-3 text-[22px]">{e.episode}</div>
+          <div className="absolute inset-0 flex items-center justify-center font-serif text-ink-3 text-[22px]">
+            {e.episode}
+          </div>
         )}
         {has && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/35 transition-colors">
@@ -334,7 +395,9 @@ function EpisodeRow({ t, e }: { t: TitleSummary; e: EpisodeView }) {
           {e.file?.quality && <Badge>{e.file.quality}</Badge>}
           {!has && <span className="text-ink-3">Not in library</span>}
         </div>
-        {e.overview && <p className="selectable mt-1.5 text-[12.5px] leading-relaxed text-ink-2 line-clamp-2">{e.overview}</p>}
+        {e.overview && (
+          <p className="selectable mt-1.5 text-[12.5px] leading-relaxed text-ink-2 line-clamp-2">{e.overview}</p>
+        )}
       </div>
       {has && (
         <div className="shrink-0 flex items-start pt-0.5">
@@ -357,7 +420,9 @@ function Files({ files }: { files: MediaFile[] }) {
   if (!files.length) return null;
   return (
     <section className="mb-10">
-      <h2 className="font-display text-[19px] font-semibold tracking-[-0.01em] text-ink mb-3">{files.length === 1 ? 'File' : 'Files'}</h2>
+      <h2 className="font-display text-[19px] font-semibold tracking-[-0.01em] text-ink mb-3">
+        {files.length === 1 ? 'File' : 'Files'}
+      </h2>
       <div className="rounded-xl bg-elev shadow-[0_0_0_0.5px_var(--line-strong)] divide-y divide-line overflow-hidden">
         {files.map((f) => (
           <div key={f.path} className="group flex items-center gap-4 px-4 py-3">
@@ -393,10 +458,17 @@ function Cast({ names }: { names: string[] }) {
       <h2 className="font-display text-[19px] font-semibold tracking-[-0.01em] text-ink mb-4">Cast</h2>
       <div className="flex flex-wrap gap-x-6 gap-y-4">
         {names.slice(0, 12).map((n) => (
-          <button key={n} onClick={() => setPalette(true, n)} className="flex items-center gap-2.5 group" title={`Find more with ${n}`}>
+          <button
+            key={n}
+            onClick={() => setPalette(true, n)}
+            className="flex items-center gap-2.5 group"
+            title={`Find more with ${n}`}
+          >
             <div
               className="size-10 rounded-full flex items-center justify-center text-[13px] font-semibold text-white/90 shadow-inner"
-              style={{ background: `linear-gradient(140deg, hsl(${hue(n)} 35% 55%), hsl(${(hue(n) + 50) % 360} 40% 35%))` }}
+              style={{
+                background: `linear-gradient(140deg, hsl(${hue(n)} 35% 55%), hsl(${(hue(n) + 50) % 360} 40% 35%))`,
+              }}
             >
               {n
                 .split(' ')
@@ -404,7 +476,9 @@ function Cast({ names }: { names: string[] }) {
                 .slice(0, 2)
                 .join('')}
             </div>
-            <span className="text-[13px] text-ink group-hover:underline underline-offset-4 decoration-line-strong">{n}</span>
+            <span className="text-[13px] text-ink group-hover:underline underline-offset-4 decoration-line-strong">
+              {n}
+            </span>
           </button>
         ))}
       </div>
@@ -452,7 +526,13 @@ function StarRating({ value, onChange }: { value: number; onChange: (v: number) 
   return (
     <div className="flex gap-1" onMouseLeave={() => setHover(0)}>
       {[1, 2, 3, 4, 5].map((n) => (
-        <button key={n} onMouseEnter={() => setHover(n)} onClick={() => onChange(n === value ? 0 : n)} aria-label={`${n} stars`} className="transition-transform hover:scale-110">
+        <button
+          key={n}
+          onMouseEnter={() => setHover(n)}
+          onClick={() => onChange(n === value ? 0 : n)}
+          aria-label={`${n} stars`}
+          className="transition-transform hover:scale-110"
+        >
           <Star className={clsx('size-[22px]', n <= shown ? 'text-accent-strong' : 'text-active')} />
         </button>
       ))}
@@ -466,7 +546,10 @@ function MoreLikeThis({ t }: { t: TitleSummary }) {
     if (!titles) return [];
     return titles
       .filter((x) => x.id !== t.id)
-      .map((x) => ({ x, s: x.genres.filter((g) => t.genres.includes(g)).length + (x.kind === t.kind ? 0.5 : 0) + (x.rating ?? 0) / 20 }))
+      .map((x) => ({
+        x,
+        s: x.genres.filter((g) => t.genres.includes(g)).length + (x.kind === t.kind ? 0.5 : 0) + (x.rating ?? 0) / 20,
+      }))
       .filter((r) => r.s >= 1.5)
       .sort((a, b) => b.s - a.s)
       .slice(0, 16)

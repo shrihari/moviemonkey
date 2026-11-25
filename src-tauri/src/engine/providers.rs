@@ -13,7 +13,11 @@ use serde::de::DeserializeOwned;
 use serde_json::Value;
 use std::time::Duration;
 
-const UA: &str = concat!("MovieMonkey/", env!("CARGO_PKG_VERSION"), " (+https://getmoviemonkey.com)");
+const UA: &str = concat!(
+    "MovieMonkey/",
+    env!("CARGO_PKG_VERSION"),
+    " (+https://getmoviemonkey.com)"
+);
 
 #[derive(Clone)]
 pub struct Providers {
@@ -37,7 +41,11 @@ fn s(v: &Value) -> Option<String> {
 fn strings(v: &Value) -> Vec<String> {
     match v {
         Value::Array(a) => a.iter().filter_map(s).collect(),
-        Value::String(x) => x.split(',').map(|p| p.trim().to_string()).filter(|p| !p.is_empty()).collect(),
+        Value::String(x) => x
+            .split(',')
+            .map(|p| p.trim().to_string())
+            .filter(|p| !p.is_empty())
+            .collect(),
         _ => vec![],
     }
 }
@@ -58,7 +66,11 @@ fn strip_html(text: &str) -> String {
             _ => {}
         }
     }
-    out.replace("&amp;", "&").replace("&quot;", "\"").replace("&#39;", "'").trim().to_string()
+    out.replace("&amp;", "&")
+        .replace("&quot;", "\"")
+        .replace("&#39;", "'")
+        .trim()
+        .to_string()
 }
 
 /// IMDb image CDN supports on-the-fly resizing via the URL.
@@ -118,6 +130,8 @@ impl Providers {
                         break;
                     }
                 }
+                // No route / refused / DNS failure: retrying won't help.
+                Err(e) if e.is_connect() => return Err(e.into()),
                 Err(e) => last_err = e.into(),
             }
             if attempt < 2 {
@@ -169,6 +183,8 @@ impl Providers {
                 rank: item["rank"].as_u64(),
                 type_weight: weight,
                 source: "imdb".into(),
+                country: None,
+                tvmaze_id: None,
             });
         }
         Ok(out)
@@ -207,6 +223,8 @@ impl Providers {
                     rank: None,
                     type_weight: 1.0,
                     source: "cinemeta".into(),
+                    country: None,
+                    tvmaze_id: None,
                 })
             })
             .collect())
@@ -223,6 +241,11 @@ impl Providers {
             .filter_map(|r| {
                 let show = &r["show"];
                 let id = s(&show["externals"]["imdb"])?;
+                let network = if show["network"].is_object() {
+                    &show["network"]
+                } else {
+                    &show["webChannel"]
+                };
                 Some(Candidate {
                     id,
                     kind: TitleKind::Series,
@@ -230,12 +253,31 @@ impl Providers {
                     year: s(&show["premiered"]).as_deref().and_then(first_year),
                     year_label: s(&show["premiered"]).map(|p| p[..4.min(p.len())].to_string()),
                     poster: s(&show["image"]["medium"]),
-                    subtitle: s(&show["network"]["name"]),
-                    rank: None,
+                    subtitle: s(&network["name"]),
+                    // TVMaze "weight" is popularity 0–100; map it onto the
+                    // IMDb-rank scale the matcher understands (100 -> rank 1).
+                    rank: show["weight"]
+                        .as_f64()
+                        .map(|w| 10f64.powf(7.0 * (1.0 - w.clamp(0.0, 100.0) / 100.0)) as u64),
                     type_weight: 1.0,
                     source: "tvmaze".into(),
+                    country: s(&network["country"]["code"]),
+                    tvmaze_id: show["id"].as_u64(),
                 })
             })
+            .collect())
+    }
+
+    /// Alternate (often foreign-language) titles of a TVMaze show.
+    pub async fn tvmaze_akas(&self, tvmaze_id: u64) -> Result<Vec<String>> {
+        let v: Value = self
+            .get_json(&format!("https://api.tvmaze.com/shows/{tvmaze_id}/akas"))
+            .await?;
+        Ok(v.as_array()
+            .cloned()
+            .unwrap_or_default()
+            .iter()
+            .filter_map(|a| s(&a["name"]))
             .collect())
     }
 
@@ -283,7 +325,12 @@ impl Providers {
             if r.contains('h') && !r.trim_start_matches(char::is_numeric).starts_with("min") {
                 let mut mins = 0u32;
                 for part in r.split_whitespace() {
-                    let n: u32 = part.chars().take_while(|c| c.is_ascii_digit()).collect::<String>().parse().unwrap_or(0);
+                    let n: u32 = part
+                        .chars()
+                        .take_while(|c| c.is_ascii_digit())
+                        .collect::<String>()
+                        .parse()
+                        .unwrap_or(0);
                     if part.ends_with('h') {
                         mins += n * 60
                     } else {
@@ -298,7 +345,11 @@ impl Providers {
         let trailer = m["trailers"]
             .as_array()
             .and_then(|a| a.iter().find_map(|t| s(&t["source"])))
-            .or_else(|| m["trailerStreams"].as_array().and_then(|a| a.iter().find_map(|t| s(&t["ytId"]))));
+            .or_else(|| {
+                m["trailerStreams"]
+                    .as_array()
+                    .and_then(|a| a.iter().find_map(|t| s(&t["ytId"])))
+            });
         let episodes = m["videos"]
             .as_array()
             .map(|vids| {
@@ -309,7 +360,9 @@ impl Providers {
                         Some(EpisodeMeta {
                             season,
                             episode,
-                            name: s(&e["name"]).or_else(|| s(&e["title"])).unwrap_or_else(|| format!("Episode {episode}")),
+                            name: s(&e["name"])
+                                .or_else(|| s(&e["title"]))
+                                .unwrap_or_else(|| format!("Episode {episode}")),
                             overview: s(&e["overview"]).or_else(|| s(&e["description"])),
                             thumbnail: s(&e["thumbnail"]),
                             released: s(&e["released"]).or_else(|| s(&e["firstAired"])),
@@ -372,7 +425,10 @@ impl Providers {
             year_label,
             overview: s(&show["summary"]).map(|h| strip_html(&h)),
             genres: strings(&show["genres"]),
-            runtime: show["averageRuntime"].as_u64().or(show["runtime"].as_u64()).map(|r| r as u32),
+            runtime: show["averageRuntime"]
+                .as_u64()
+                .or(show["runtime"].as_u64())
+                .map(|r| r as u32),
             rating: show["rating"]["average"].as_f64(),
             status: s(&show["status"]),
             released: premiered,
@@ -403,6 +459,20 @@ impl Providers {
 
     /// Best-effort full metadata for an IMDb id, with fallbacks.
     pub async fn details(&self, id: &str, kind: TitleKind, hint: Option<&Candidate>) -> Result<TitleMeta> {
+        // Manual matches and refreshes arrive without a search hit; look the id
+        // up on IMDb so we still get its canonical year and a fallback poster.
+        let fetched;
+        let hint = match hint {
+            Some(h) => Some(h),
+            None => {
+                fetched = self
+                    .imdb_search(id)
+                    .await
+                    .ok()
+                    .and_then(|c| c.into_iter().find(|c| c.id == id));
+                fetched.as_ref()
+            }
+        };
         match self.cinemeta_meta(id, kind).await {
             Ok(mut meta) => {
                 if kind == TitleKind::Series && meta.episodes.is_empty() {
@@ -414,7 +484,21 @@ impl Providers {
                     }
                 }
                 if let Some(h) = hint {
-                    if meta.poster_alt.is_none() || meta.poster_alt.as_deref().map(|p| p.contains("metahub")).unwrap_or(false) {
+                    // Cinemeta sometimes reports a later (US) release year for
+                    // foreign films; IMDb's own year is the original release.
+                    if kind == TitleKind::Movie && h.source == "imdb" {
+                        if let Some(y) = h.year {
+                            meta.year = Some(y);
+                            meta.year_label = Some(y.to_string());
+                        }
+                    }
+                    if meta.poster_alt.is_none()
+                        || meta
+                            .poster_alt
+                            .as_deref()
+                            .map(|p| p.contains("metahub"))
+                            .unwrap_or(false)
+                    {
                         meta.poster_alt = h.poster.clone().or(meta.poster_alt);
                     }
                 }
@@ -435,7 +519,11 @@ impl Providers {
                     name: h.title.clone(),
                     year: h.year,
                     year_label: h.year_label.clone(),
-                    cast: h.subtitle.as_deref().map(|s| s.split(", ").map(String::from).collect()).unwrap_or_default(),
+                    cast: h
+                        .subtitle
+                        .as_deref()
+                        .map(|s| s.split(", ").map(String::from).collect())
+                        .unwrap_or_default(),
                     poster: h.poster.clone(),
                     source: h.source.clone(),
                     ..Default::default()

@@ -5,8 +5,8 @@ import { ContextMenuHost } from './components/ContextMenu';
 import { FixMatchDialog } from './components/FixMatchDialog';
 import { DropOverlay, Toasts } from './components/Overlays';
 import { Sidebar } from './components/Sidebar';
-import { Spinner } from './components/ui';
-import { api } from './lib/api';
+import { Button, Spinner } from './components/ui';
+import { api, isTauri } from './lib/api';
 import { useStore, type Route } from './lib/store';
 import { DetailView } from './views/DetailView';
 import { GridView } from './views/GridView';
@@ -64,6 +64,13 @@ function useTheme() {
       document.documentElement.classList.toggle('dark', dark);
     };
     apply();
+    // The translucent sidebar is drawn by macOS, so the native window must
+    // switch appearance too (null = follow the system).
+    if (isTauri) {
+      import('@tauri-apps/api/window')
+        .then(({ getCurrentWindow }) => getCurrentWindow().setTheme(theme === 'system' ? null : theme))
+        .catch(() => {});
+    }
     mq.addEventListener('change', apply);
     return () => mq.removeEventListener('change', apply);
   }, [theme]);
@@ -170,12 +177,47 @@ export default function App() {
 
 function IdentifyingPlaceholder() {
   const progress = useStore((s) => s.progress);
+  const unmatched = useStore((s) => s.snapshot?.stats.unmatched ?? 0);
+  const navigate = useStore((s) => s.navigate);
+  const toast = useStore((s) => s.toast);
+  if (!progress.active) {
+    const offline = progress.deferred > 0;
+    return (
+      <div className="h-[calc(100vh-16px)] flex flex-col items-center justify-center text-center px-10">
+        <div className="font-display text-[20px] font-semibold text-ink">
+          {offline ? 'Can’t reach the metadata services' : 'No movies or shows found yet'}
+        </div>
+        <div className="mt-1.5 text-ink-2 text-[13px] max-w-[420px] leading-relaxed">
+          {offline
+            ? 'Your files were found, but identifying them needs an internet connection. Movie Monkey retries automatically.'
+            : unmatched
+              ? `${unmatched} file${unmatched === 1 ? '' : 's'} couldn’t be identified automatically.`
+              : 'Add a folder that contains video files, or drop one onto this window.'}
+        </div>
+        <div className="mt-5 flex gap-2">
+          {offline && (
+            <Button
+              onClick={async () => {
+                await api.rescan();
+                toast('Retrying…');
+              }}
+            >
+              Retry now
+            </Button>
+          )}
+          {!offline && unmatched > 0 && <Button onClick={() => navigate({ name: 'review' })}>Review files</Button>}
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="h-[calc(100vh-16px)] flex flex-col items-center justify-center text-center px-10">
       <Spinner className="size-6 text-ink-3" />
       <div className="mt-4 font-display text-[20px] font-semibold text-ink">Building your library…</div>
       <div className="mt-1 text-ink-2 text-[13px]">
-        {progress.phase === 'identifying' ? `Identified ${progress.done} of ${progress.total}` : 'Looking for movies and shows'}
+        {progress.phase === 'identifying'
+          ? `Identified ${progress.done} of ${progress.total}`
+          : 'Looking for movies and shows'}
       </div>
     </div>
   );

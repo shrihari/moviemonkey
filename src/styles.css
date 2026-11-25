@@ -3,8 +3,11 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme inline {
-  --font-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', 'Segoe UI Variable', 'Segoe UI', system-ui, sans-serif;
-  --font-display: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter Display', 'Segoe UI Variable Display', system-ui, sans-serif;
+  --font-sans:
+    -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', 'Segoe UI Variable', 'Segoe UI', system-ui, sans-serif;
+  --font-display:
+    -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter Display', 'Segoe UI Variable Display', system-ui,
+    sans-serif;
   --font-serif: 'New York', ui-serif, 'Iowan Old Style', 'Charter', Georgia, serif;
   --font-mono: ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, monospace;
 
@@ -73,57 +76,57 @@
 }
 
 @layer base {
-html,
-body,
-#root {
-  height: 100%;
-  margin: 0;
-  overflow: hidden;
-}
+  html,
+  body,
+  #root {
+    height: 100%;
+    margin: 0;
+    overflow: hidden;
+  }
 
-body {
-  font-family: var(--font-sans);
-  font-size: 13px;
-  color: var(--ink);
-  background: var(--window);
-  -webkit-font-smoothing: antialiased;
-  text-rendering: optimizeLegibility;
-  cursor: default;
-  -webkit-user-select: none;
-  user-select: none;
-}
+  body {
+    font-family: var(--font-sans);
+    font-size: 13px;
+    color: var(--ink);
+    background: var(--window);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    cursor: default;
+    -webkit-user-select: none;
+    user-select: none;
+  }
 
-/* Inside Tauri the window is transparent so the sidebar gets native vibrancy. */
-html.tauri body {
-  background: transparent;
-}
-html.tauri {
-  --sidebar: transparent;
-}
+  /* Inside Tauri the window is transparent so the sidebar gets native vibrancy. */
+  html.tauri body {
+    background: transparent;
+  }
+  html.tauri {
+    --sidebar: transparent;
+  }
 
-input,
-textarea,
-.selectable {
-  -webkit-user-select: text;
-  user-select: text;
-}
+  input,
+  textarea,
+  .selectable {
+    -webkit-user-select: text;
+    user-select: text;
+  }
 
-button {
-  cursor: default;
-}
+  button {
+    cursor: default;
+  }
 
-img {
-  -webkit-user-drag: none;
-}
+  img {
+    -webkit-user-drag: none;
+  }
 
-:focus {
-  outline: none;
-}
-:focus-visible {
-  outline: 2px solid color-mix(in oklab, var(--accent) 80%, transparent);
-  outline-offset: 2px;
-  border-radius: 6px;
-}
+  :focus {
+    outline: none;
+  }
+  :focus-visible {
+    outline: 2px solid color-mix(in oklab, var(--accent) 80%, transparent);
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
 }
 
 /* Thin overlay-style scrollbars */
@@ -168,6 +171,17 @@ img {
 .poster-card {
   content-visibility: auto;
   contain-intrinsic-size: auto 320px;
+}
+
+@keyframes card-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+}
+.card-in {
+  animation: card-in 0.45s var(--ease-out-expo) both;
+  animation-delay: calc(var(--i, 0) * 18ms);
 }
 
 @keyframes shimmer {
@@ -226,5 +240,7 @@ input[type='range'].slider::-webkit-slider-thumb {
   height: 14px;
   border-radius: 99px;
   background: var(--elev);
-  box-shadow: 0 0 0 0.5px var(--line-strong), 0 1px 3px rgb(0 0 0 / 0.3);
+  box-shadow:
+    0 0 0 0.5px var(--line-strong),
+    0 1px 3px rgb(0 0 0 / 0.3);
 }

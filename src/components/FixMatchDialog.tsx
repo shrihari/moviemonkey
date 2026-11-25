@@ -63,7 +63,12 @@ export function FixMatchDialog() {
   return (
     <AnimatePresence>
       {target && (
-        <motion.div className="fixed inset-0 z-[85] flex items-center justify-center" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+        <motion.div
+          className="fixed inset-0 z-[85] flex items-center justify-center"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+        >
           <div className="absolute inset-0 bg-black/30 dark:bg-black/55" onClick={close} />
           <motion.div
             initial={{ opacity: 0, scale: 0.97, y: 8 }}
@@ -108,13 +113,20 @@ export function FixMatchDialog() {
               />
             </div>
             <div className="flex-1 overflow-y-auto scroll px-2.5 pb-3">
-              {results?.length === 0 && !loading && <p className="py-12 text-center text-[13px] text-ink-2">No matches. Try a different spelling or the original title.</p>}
+              {results?.length === 0 && !loading && (
+                <p className="py-12 text-center text-[13px] text-ink-2">
+                  No matches. Try a different spelling or the original title.
+                </p>
+              )}
               {results?.map((c) => (
                 <button
                   key={c.id}
                   disabled={!!assigning}
                   onClick={() => choose(c)}
-                  className={clsx('w-full flex items-center gap-3.5 px-2.5 py-2 rounded-xl text-left hover:bg-hover transition-colors', assigning === c.id && 'bg-hover')}
+                  className={clsx(
+                    'w-full flex items-center gap-3.5 px-2.5 py-2 rounded-xl text-left hover:bg-hover transition-colors',
+                    assigning === c.id && 'bg-hover',
+                  )}
                 >
                   <div className="w-10 aspect-[2/3] rounded-md overflow-hidden bg-sunken shrink-0 ring-1 ring-inset ring-line">
                     {c.poster && <img src={img(c.poster)} alt="" className="size-full object-cover" loading="lazy" />}

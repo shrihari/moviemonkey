@@ -131,6 +131,8 @@ export interface Progress {
   found: number;
   matched: number;
   failed: number;
+  /** Titles that couldn't be looked up because the services were unreachable. */
+  deferred: number;
 }
 
 export interface Candidate {

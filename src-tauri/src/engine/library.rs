@@ -21,8 +21,17 @@ use tokio::sync::mpsc;
 const MIN_VIDEO_BYTES: u64 = 15 * 1024 * 1024;
 /// How many titles are identified in parallel (be polite to free APIs).
 const CONCURRENCY: usize = 4;
+/// When the metadata services are unreachable, try again after this long.
+const OFFLINE_RETRY: Duration = Duration::from_secs(90);
 
-const SKIP_DIRS: &[&str] = &["@eaDir", "$RECYCLE.BIN", "System Volume Information", "#recycle", "lost+found", "node_modules"];
+const SKIP_DIRS: &[&str] = &[
+    "@eaDir",
+    "$RECYCLE.BIN",
+    "System Volume Information",
+    "#recycle",
+    "lost+found",
+    "node_modules",
+];
 
 pub enum Event {
     Progress(Progress),
@@ -48,6 +57,7 @@ pub struct Library {
     jobs_rx: Mutex<Option<mpsc::UnboundedReceiver<Job>>>,
     last_changed: Mutex<Instant>,
     watcher: Mutex<Option<Debouncer<notify_debouncer_mini::notify::RecommendedWatcher>>>,
+    retry_scheduled: Arc<std::sync::atomic::AtomicBool>,
 }
 
 fn quality_rank(q: Option<&str>) -> u32 {
@@ -62,7 +72,11 @@ fn quality_rank(q: Option<&str>) -> u32 {
 }
 
 fn file_name(path: &str) -> String {
-    Path::new(path).file_name().and_then(|n| n.to_str()).unwrap_or(path).to_string()
+    Path::new(path)
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or(path)
+        .to_string()
 }
 
 impl Library {
@@ -73,11 +87,15 @@ impl Library {
             db: Mutex::new(db),
             providers: Providers::new(),
             sink,
-            progress: Mutex::new(Progress { phase: "idle".into(), ..Default::default() }),
+            progress: Mutex::new(Progress {
+                phase: "idle".into(),
+                ..Default::default()
+            }),
             jobs: tx,
             jobs_rx: Mutex::new(Some(rx)),
             last_changed: Mutex::new(Instant::now() - Duration::from_secs(10)),
             watcher: Mutex::new(None),
+            retry_scheduled: Arc::new(std::sync::atomic::AtomicBool::new(false)),
         }))
     }
 
@@ -156,7 +174,11 @@ impl Library {
 
         if !targets.is_empty() {
             self.set_progress(|p| {
-                *p = Progress { active: true, phase: "scanning".into(), ..Default::default() };
+                *p = Progress {
+                    active: true,
+                    phase: "scanning".into(),
+                    ..Default::default()
+                };
             });
             let mut found = 0;
             for f in &targets {
@@ -170,7 +192,10 @@ impl Library {
             self.changed(true);
         }
 
-        self.identify_pending().await?;
+        let deferred = self.identify_pending().await?;
+        if deferred > 0 {
+            self.schedule_retry();
+        }
         self.set_progress(|p| {
             p.active = false;
             p.phase = "idle".into();
@@ -229,17 +254,23 @@ impl Library {
         Ok(new_count)
     }
 
-    async fn identify_pending(&self) -> Result<()> {
+    /// Identify every pending file. Returns how many titles were deferred
+    /// because the metadata services could not be reached.
+    async fn identify_pending(&self) -> Result<usize> {
         let pending = self.db().files_with_status("pending")?;
         if pending.is_empty() {
-            return Ok(());
+            return Ok(0);
         }
         // Group files that refer to the same title so each title is looked up once.
         let mut groups: BTreeMap<String, Vec<FileRow>> = BTreeMap::new();
         for f in pending {
             let key = match f.parsed.kind {
                 ParsedKind::Movie => format!("m:{}:{:?}", normalise_for_compare(&f.parsed.title), f.parsed.year),
-                ParsedKind::Episode => format!("s:{}:{:?}", normalise_for_compare(&search_title(&f.parsed)), f.parsed.year),
+                ParsedKind::Episode => format!(
+                    "s:{}:{:?}",
+                    normalise_for_compare(&search_title(&f.parsed)),
+                    f.parsed.year
+                ),
             };
             groups.entry(key).or_default().push(f);
         }
@@ -251,39 +282,55 @@ impl Library {
             p.done = 0;
             p.matched = 0;
             p.failed = 0;
+            p.deferred = 0;
         });
 
+        // After a run of "unreachable" results, assume we're offline and stop
+        // hammering the network; the rest is deferred and retried later.
+        let offline_streak = std::sync::atomic::AtomicUsize::new(0);
+        let offline_streak = &offline_streak;
         let stream = futures::stream::iter(groups.into_values())
             .map(|files| async move {
                 let label = files[0].parsed.title.clone();
+                use std::sync::atomic::Ordering::SeqCst;
+                if offline_streak.load(SeqCst) >= CONCURRENCY * 2 {
+                    return (label, Err(anyhow!("offline: skipped")));
+                }
                 let res = self.identify_group(&files).await;
+                match &res {
+                    Err(_) => offline_streak.fetch_add(1, SeqCst),
+                    Ok(_) => offline_streak.swap(0, SeqCst),
+                };
                 (label, res)
             })
             .buffer_unordered(CONCURRENCY);
         futures::pin_mut!(stream);
+        let mut deferred = 0;
         while let Some((label, res)) = stream.next().await {
-            let ok = matches!(res, Ok(true));
             if let Err(e) = &res {
-                log::warn!("identify '{label}' failed: {e:#}");
+                log::warn!("identify '{label}' deferred: {e:#}");
+                deferred += 1;
             }
             self.set_progress(|p| {
                 p.done += 1;
                 p.current = Some(label);
-                if ok {
-                    p.matched += 1
-                } else {
-                    p.failed += 1
+                match res {
+                    Ok(true) => p.matched += 1,
+                    Ok(false) => p.failed += 1,
+                    Err(_) => p.deferred += 1,
                 }
             });
             self.changed(false);
         }
-        Ok(())
+        Ok(deferred)
     }
 
     /// Identify one group of files. Ok(true) when matched.
     async fn identify_group(&self, files: &[FileRow]) -> Result<bool> {
         let parsed = &files[0].parsed;
-        let result = matcher::identify(&self.providers, parsed).await;
+        // Err = every provider was unreachable: leave the files pending so a
+        // later pass retries them, instead of wrongly flagging them for review.
+        let result = matcher::identify(&self.providers, parsed).await?;
         let m = match result {
             Some(m) if m.accepted() => m,
             other => {
@@ -298,7 +345,10 @@ impl Library {
         let id = m.candidate.id.clone();
         let existing = self.db().title(&id)?;
         if existing.is_none() {
-            let meta = self.providers.details(&id, m.candidate.kind, Some(&m.candidate)).await?;
+            let meta = self
+                .providers
+                .details(&id, m.candidate.kind, Some(&m.candidate))
+                .await?;
             self.db().upsert_title(&meta)?;
         }
         let db = self.db();
@@ -308,6 +358,20 @@ impl Library {
         Ok(true)
     }
 
+    /// Re-run identification later (at most one timer at a time).
+    fn schedule_retry(&self) {
+        if self.retry_scheduled.swap(true, std::sync::atomic::Ordering::SeqCst) {
+            return;
+        }
+        let tx = self.jobs.clone();
+        let flag = self.retry_scheduled.clone();
+        tokio::spawn(async move {
+            tokio::time::sleep(OFFLINE_RETRY).await;
+            flag.store(false, std::sync::atomic::Ordering::SeqCst);
+            let _ = tx.send(Job::ScanAll);
+        });
+    }
+
     // --------------------------------------------------------------- actions
 
     pub fn add_folders(self: &Arc<Self>, paths: &[String]) -> Result<Vec<i64>> {
@@ -315,7 +379,9 @@ impl Library {
         for p in paths {
             let path = PathBuf::from(p);
             let dir = if path.is_file() {
-                path.parent().map(|d| d.to_path_buf()).ok_or_else(|| anyhow!("bad path"))?
+                path.parent()
+                    .map(|d| d.to_path_buf())
+                    .ok_or_else(|| anyhow!("bad path"))?
             } else {
                 path
             };
@@ -358,7 +424,13 @@ impl Library {
                 for f in db.files_for_title(key)? {
                     if let (Some(s), Some(e)) = (f.season, f.episode) {
                         for ep in e..=f.episode_end.unwrap_or(e) {
-                            db.patch_state(&episode_key(key, s, ep), &StatePatch { watched: Some(w), ..Default::default() })?;
+                            db.patch_state(
+                                &episode_key(key, s, ep),
+                                &StatePatch {
+                                    watched: Some(w),
+                                    ..Default::default()
+                                },
+                            )?;
                         }
                     }
                 }
@@ -432,9 +504,9 @@ impl Library {
         let debouncer = new_debouncer(Duration::from_secs(3), move |res: DebounceEventResult| {
             if let (Ok(batch), Some(lib)) = (res, weak.upgrade()) {
                 let relevant = match batch {
-                    DebouncedEventBatch::Events(events) => events.iter().any(|e| {
-                        e.path.is_dir() || is_video_file(&e.path) || !e.path.exists()
-                    }),
+                    DebouncedEventBatch::Events(events) => events
+                        .iter()
+                        .any(|e| e.path.is_dir() || is_video_file(&e.path) || !e.path.exists()),
                     _ => true,
                 };
                 if relevant {
@@ -484,7 +556,11 @@ impl Library {
                     added_at: f.added_at,
                     guess_title: f.parsed.title.clone(),
                     guess_year: f.parsed.year,
-                    guess_kind: if f.parsed.kind == ParsedKind::Episode { TitleKind::Series } else { TitleKind::Movie },
+                    guess_kind: if f.parsed.kind == ParsedKind::Episode {
+                        TitleKind::Series
+                    } else {
+                        TitleKind::Movie
+                    },
                     season: f.season,
                     episode: f.episode,
                 }),
@@ -493,7 +569,10 @@ impl Library {
         }
 
         let mut out = vec![];
-        let mut stats = LibraryStats { unmatched: unmatched.len(), ..Default::default() };
+        let mut stats = LibraryStats {
+            unmatched: unmatched.len(),
+            ..Default::default()
+        };
         for t in &titles {
             let tf = by_title.get(t.meta.id.as_str()).cloned().unwrap_or_default();
             let st = state.get(&t.meta.id).cloned().unwrap_or_default();
@@ -511,7 +590,7 @@ impl Library {
             stats.total_size += s.total_size;
             out.push(s);
         }
-        out.sort_by(|a, b| b.added_at.cmp(&a.added_at));
+        out.sort_by_key(|t| std::cmp::Reverse(t.added_at));
         unmatched.sort_by(|a, b| a.file_name.cmp(&b.file_name));
 
         Ok(LibrarySnapshot {
@@ -552,7 +631,10 @@ impl Library {
         if t.meta.kind == TitleKind::Series {
             let mut map: BTreeMap<u32, BTreeMap<u32, EpisodeView>> = BTreeMap::new();
             for e in &t.meta.episodes {
-                let st = state.get(&episode_key(id, e.season, e.episode)).cloned().unwrap_or_default();
+                let st = state
+                    .get(&episode_key(id, e.season, e.episode))
+                    .cloned()
+                    .unwrap_or_default();
                 map.entry(e.season).or_default().insert(
                     e.episode,
                     EpisodeView {
@@ -570,7 +652,9 @@ impl Library {
                 );
             }
             for (f, mf) in files.iter().zip(media.iter()) {
-                let (Some(s), Some(e)) = (f.season, f.episode) else { continue };
+                let (Some(s), Some(e)) = (f.season, f.episode) else {
+                    continue;
+                };
                 for ep in e..=f.episode_end.unwrap_or(e) {
                     let st = state.get(&episode_key(id, s, ep)).cloned().unwrap_or_default();
                     let entry = map.entry(s).or_default().entry(ep).or_insert_with(|| EpisodeView {
@@ -581,7 +665,12 @@ impl Library {
                         last_played_at: st.last_played_at,
                         ..Default::default()
                     });
-                    if entry.file.as_ref().map(|x| quality_rank(x.quality.as_deref()) < quality_rank(mf.quality.as_deref())).unwrap_or(true) {
+                    if entry
+                        .file
+                        .as_ref()
+                        .map(|x| quality_rank(x.quality.as_deref()) < quality_rank(mf.quality.as_deref()))
+                        .unwrap_or(true)
+                    {
                         entry.file = Some(mf.clone());
                     }
                 }
@@ -589,7 +678,11 @@ impl Library {
             for (num, eps) in map {
                 let episodes: Vec<EpisodeView> = eps.into_values().collect();
                 let available = episodes.iter().filter(|e| e.file.is_some()).count();
-                seasons.push(SeasonView { number: num, episodes, available });
+                seasons.push(SeasonView {
+                    number: num,
+                    episodes,
+                    available,
+                });
             }
             // Specials go last
             seasons.sort_by_key(|s| if s.number == 0 { u32::MAX } else { s.number });
@@ -665,7 +758,12 @@ fn build_summary(
     }
     let watched_eps = episodes
         .iter()
-        .filter(|(s, e)| state.get(&episode_key(&m.id, *s, *e)).map(|x| x.watched).unwrap_or(false))
+        .filter(|(s, e)| {
+            state
+                .get(&episode_key(&m.id, *s, *e))
+                .map(|x| x.watched)
+                .unwrap_or(false)
+        })
         .count();
     let last_ep_play = episodes
         .iter()
@@ -715,13 +813,16 @@ fn build_summary(
 /// Recursively list video files: (path, size, mtime-ms).
 fn walk(root: &Path) -> Result<Vec<(String, u64, i64)>> {
     let mut out = vec![];
-    let it = walkdir::WalkDir::new(root).follow_links(false).into_iter().filter_entry(|e| {
-        let name = e.file_name().to_string_lossy();
-        if e.depth() == 0 {
-            return true;
-        }
-        !(name.starts_with('.') || SKIP_DIRS.contains(&name.as_ref()))
-    });
+    let it = walkdir::WalkDir::new(root)
+        .follow_links(false)
+        .into_iter()
+        .filter_entry(|e| {
+            let name = e.file_name().to_string_lossy();
+            if e.depth() == 0 {
+                return true;
+            }
+            !(name.starts_with('.') || SKIP_DIRS.contains(&name.as_ref()))
+        });
     for entry in it.flatten() {
         if !entry.file_type().is_file() || !is_video_file(entry.path()) {
             continue;

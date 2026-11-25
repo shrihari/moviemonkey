@@ -24,7 +24,10 @@ export function SettingsView() {
         <h1 className="font-display text-[30px] font-semibold tracking-[-0.02em] text-ink">Settings</h1>
       </header>
 
-      <Group title="Library folders" description="Movie Monkey watches these folders and picks up new files automatically.">
+      <Group
+        title="Library folders"
+        description="Movie Monkey watches these folders and picks up new files automatically."
+      >
         {snapshot?.folders.map((f) => (
           <div key={f.id} className="flex items-center gap-3 px-4 py-3">
             <div className="size-9 rounded-lg bg-sunken flex items-center justify-center text-ink-2">
@@ -117,7 +120,9 @@ function Group({ title, description, children }: { title: string; description?: 
     <section className="mb-8">
       <h2 className="text-[13px] font-semibold text-ink">{title}</h2>
       {description && <p className="text-[12px] text-ink-2 mt-0.5">{description}</p>}
-      <div className="mt-3 rounded-2xl bg-elev shadow-[0_0_0_0.5px_var(--line-strong)] divide-y divide-line overflow-hidden">{children}</div>
+      <div className="mt-3 rounded-2xl bg-elev shadow-[0_0_0_0.5px_var(--line-strong)] divide-y divide-line overflow-hidden">
+        {children}
+      </div>
     </section>
   );
 }

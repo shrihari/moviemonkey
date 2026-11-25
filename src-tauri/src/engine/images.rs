@@ -36,7 +36,11 @@ pub fn sniff(bytes: &[u8]) -> Option<&'static str> {
 impl ImageCache {
     pub fn new(dir: PathBuf, http: reqwest::Client) -> Self {
         let _ = std::fs::create_dir_all(&dir);
-        Self { dir, http, gate: Arc::new(Semaphore::new(8)) }
+        Self {
+            dir,
+            http,
+            gate: Arc::new(Semaphore::new(8)),
+        }
     }
 
     fn path_for(&self, url: &str) -> PathBuf {

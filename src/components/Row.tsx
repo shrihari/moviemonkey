@@ -9,7 +9,17 @@ import { useContextMenu } from './ContextMenu';
 import { FadeImg } from './Poster';
 import { PosterCard, titleMenu } from './PosterCard';
 
-export function Row({ title, subtitle, onSeeAll, children }: { title: string; subtitle?: string; onSeeAll?: () => void; children: ReactNode }) {
+export function Row({
+  title,
+  subtitle,
+  onSeeAll,
+  children,
+}: {
+  title: string;
+  subtitle?: string;
+  onSeeAll?: () => void;
+  children: ReactNode;
+}) {
   const ref = useRef<HTMLDivElement>(null);
   const [edges, setEdges] = useState({ start: true, end: false });
   const update = () => {
@@ -18,7 +28,8 @@ export function Row({ title, subtitle, onSeeAll, children }: { title: string; su
     setEdges({ start: el.scrollLeft < 8, end: el.scrollLeft + el.clientWidth >= el.scrollWidth - 8 });
   };
   useEffect(update, [children]);
-  const scroll = (dir: number) => ref.current?.scrollBy({ left: dir * ref.current.clientWidth * 0.8, behavior: 'smooth' });
+  const scroll = (dir: number) =>
+    ref.current?.scrollBy({ left: dir * ref.current.clientWidth * 0.8, behavior: 'smooth' });
 
   return (
     <section className="group/row relative mt-9 first:mt-6">
@@ -34,7 +45,11 @@ export function Row({ title, subtitle, onSeeAll, children }: { title: string; su
         )}
       </div>
       <div className="relative">
-        <div ref={ref} onScroll={update} className="flex gap-5 overflow-x-auto no-scrollbar px-10 pb-4 pt-1 scroll-px-10 snap-x [overflow-anchor:none]">
+        <div
+          ref={ref}
+          onScroll={update}
+          className="flex gap-5 overflow-x-auto no-scrollbar px-10 pb-4 pt-1 scroll-px-10 snap-x [overflow-anchor:none]"
+        >
           {children}
         </div>
         <EdgeButton side="left" hidden={edges.start} onClick={() => scroll(-1)} />
@@ -85,7 +100,11 @@ export function BackdropCard({ t, progress, caption }: { t: TitleSummary; progre
         onClick={() => openTitle(t.id)}
         className="relative block w-full aspect-video rounded-xl overflow-hidden bg-sunken shadow-poster transition-[transform,box-shadow] duration-300 ease-[var(--ease-out-expo)] group-hover:-translate-y-1 group-hover:shadow-poster-hover"
       >
-        <FadeImg src={t.backdrop} fallback={t.poster} className="absolute inset-0 size-full object-cover transition-transform duration-700 group-hover:scale-[1.04]" />
+        <FadeImg
+          src={t.backdrop}
+          fallback={t.poster}
+          className="absolute inset-0 size-full object-cover transition-transform duration-700 group-hover:scale-[1.04]"
+        />
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent" />
         <div className="absolute inset-x-0 bottom-0 p-3.5 flex items-end gap-3">
           <div className="flex-1 min-w-0 text-left">
@@ -123,4 +142,3 @@ export function BackdropCard({ t, progress, caption }: { t: TitleSummary; progre
     </div>
   );
 }
-

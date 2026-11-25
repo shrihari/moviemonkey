@@ -17,7 +17,7 @@ impl TitleKind {
             TitleKind::Series => "series",
         }
     }
-    pub fn from_str(s: &str) -> Self {
+    pub fn from_db(s: &str) -> Self {
         if s == "series" {
             TitleKind::Series
         } else {
@@ -84,6 +84,9 @@ pub struct Candidate {
     /// Weight for non-standard types (TV movie, short, video …).
     pub type_weight: f64,
     pub source: String,
+    /// ISO country of the network (TVMaze only).
+    pub country: Option<String>,
+    pub tvmaze_id: Option<u64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -257,4 +260,6 @@ pub struct Progress {
     pub found: usize,
     pub matched: usize,
     pub failed: usize,
+    /// Titles that couldn't be looked up (offline); retried automatically.
+    pub deferred: usize,
 }

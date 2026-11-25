@@ -78,12 +78,7 @@ async fn search_titles(
 }
 
 #[tauri::command]
-async fn assign_match(
-    state: State<'_, AppState>,
-    paths: Vec<String>,
-    id: String,
-    kind: TitleKind,
-) -> CmdResult<()> {
+async fn assign_match(state: State<'_, AppState>, paths: Vec<String>, id: String, kind: TitleKind) -> CmdResult<()> {
     state.lib.assign(&paths, &id, kind).await.map_err(err)
 }
 
@@ -109,6 +104,25 @@ async fn clear_cache(state: State<'_, AppState>) -> CmdResult<()> {
 
 pub fn run() {
     tauri::Builder::default()
+        // Must be first: a second launch focuses this window (and hands over
+        // any folder arguments) instead of opening the database twice.
+        .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
+            if let Some(w) = app.get_webview_window("main") {
+                let _ = w.unminimize();
+                let _ = w.show();
+                let _ = w.set_focus();
+            }
+            let dirs: Vec<String> = args
+                .into_iter()
+                .skip(1)
+                .filter(|a| std::path::Path::new(a).is_dir())
+                .collect();
+            if let (false, Some(state)) = (dirs.is_empty(), app.try_state::<AppState>()) {
+                let lib = state.lib.clone();
+                tauri::async_runtime::spawn_blocking(move || lib.add_folders(&dirs));
+            }
+        }))
+        .plugin(tauri_plugin_window_state::Builder::default().build())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .register_asynchronous_uri_scheme_protocol("mm", |ctx, request, responder| {
@@ -146,7 +160,10 @@ pub fn run() {
             });
             let lib = Library::new(&data_dir.join("library.sqlite"), sink)?;
             let images = ImageCache::new(cache_dir, lib.providers().client().clone());
-            app.manage(AppState { lib: lib.clone(), images });
+            app.manage(AppState {
+                lib: lib.clone(),
+                images,
+            });
             tauri::async_runtime::spawn(lib.clone().run_worker());
             // Touching the library folders can block (slow/network drives, or a
             // macOS privacy prompt for Documents / external volumes), so never do

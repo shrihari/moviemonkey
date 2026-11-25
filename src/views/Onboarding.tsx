@@ -18,7 +18,12 @@ export function Onboarding() {
         transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
         className="relative max-w-[520px] text-center px-8"
       >
-        <img src={monkey} alt="" className="size-24 mx-auto drop-shadow-xl" style={{ animation: 'float 6s ease-in-out infinite' }} />
+        <img
+          src={monkey}
+          alt=""
+          className="size-24 mx-auto drop-shadow-xl"
+          style={{ animation: 'float 6s ease-in-out infinite' }}
+        />
         <h1 className="mt-8 font-display text-[34px] leading-[1.1] font-semibold tracking-[-0.025em] text-ink">
           Your movies,
           <br />
@@ -39,9 +44,21 @@ export function Onboarding() {
         </p>
 
         <div className="mt-12 grid grid-cols-3 gap-3 text-left">
-          <Feature icon={<Sparkles className="size-4" />} title="Automatic" text="Messy file names in, clean library out." />
-          <Feature icon={<KeyRound className="size-4" />} title="No API keys" text="Uses free, open metadata sources." />
-          <Feature icon={<HardDrive className="size-4" />} title="Local-first" text="Your files never leave your disk." />
+          <Feature
+            icon={<Sparkles className="size-4" />}
+            title="Automatic"
+            text="Messy file names in, clean library out."
+          />
+          <Feature
+            icon={<KeyRound className="size-4" />}
+            title="No API keys"
+            text="Uses free, open metadata sources."
+          />
+          <Feature
+            icon={<HardDrive className="size-4" />}
+            title="Local-first"
+            text="Your files never leave your disk."
+          />
         </div>
       </motion.div>
     </div>

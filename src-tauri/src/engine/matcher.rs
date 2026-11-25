@@ -1,7 +1,7 @@
 //! Picks the right title for a parsed file name from provider search results.
 
 use super::models::{Candidate, TitleKind};
-use super::parse::{normalise_for_compare, search_title, Parsed, ParsedKind};
+use super::parse::{country_hint, normalise_for_compare, search_title, Parsed, ParsedKind};
 use super::providers::Providers;
 
 /// Scores at or above this are accepted automatically…
@@ -29,7 +29,11 @@ pub fn title_similarity(a: &str, b: &str) -> f64 {
     let dice = 2.0 * common / (ta.len() + tb.len()) as f64;
     // Jaro-Winkler rewards shared prefixes, which makes sequels look identical
     // ("Matrix" vs "Matrix Resurrections"); only trust it for typo-level differences.
-    let base = if ta.len() == tb.len() { lev.max(dice * 0.97).max(jw * 0.9) } else { lev.max(dice * 0.97) };
+    let base = if ta.len() == tb.len() {
+        lev.max(dice * 0.97).max(jw * 0.9)
+    } else {
+        lev.max(dice * 0.97)
+    };
     // Penalise when one side has significant extra words.
     let len_ratio = (ta.len().min(tb.len()) as f64) / (ta.len().max(tb.len()) as f64);
     if len_ratio <= 0.5 {
@@ -88,30 +92,77 @@ fn best(parsed: &Parsed, cands: &[Candidate]) -> Option<MatchResult> {
         .max_by(|a, b| a.score.partial_cmp(&b.score).unwrap_or(std::cmp::Ordering::Equal))
 }
 
+/// Score a candidate as if its title were `alt` (an alternate / foreign title).
+fn as_alt_title(parsed: &Parsed, c: &Candidate, alt: &str) -> MatchResult {
+    let mut probe = c.clone();
+    probe.title = alt.to_string();
+    MatchResult {
+        candidate: c.clone(),
+        score: score(parsed, &probe),
+        similarity: title_similarity(&search_title(parsed), alt),
+    }
+}
+
 /// Query providers in order of quality until a confident match appears.
+///
 /// Returns the best candidate even when below the threshold, so the UI can
-/// offer it as a suggestion.
-pub async fn identify(p: &Providers, parsed: &Parsed) -> Option<MatchResult> {
+/// offer it as a suggestion. Returns `Err` only when *every* provider request
+/// failed (e.g. no network) – the caller should retry later rather than
+/// conclude the file is unidentifiable.
+pub async fn identify(p: &Providers, parsed: &Parsed) -> anyhow::Result<Option<MatchResult>> {
     let title = search_title(parsed);
     if title.trim().is_empty() {
-        return None;
+        return Ok(None);
     }
     let kind = match parsed.kind {
         ParsedKind::Movie => TitleKind::Movie,
         ParsedKind::Episode => TitleKind::Series,
     };
     let mut best_so_far: Option<MatchResult> = None;
+    let mut reached = false;
+    let mut last_err: Option<anyhow::Error> = None;
+
     fn take(best: &mut Option<MatchResult>, m: Option<MatchResult>) {
         if let Some(m) = m {
-            if best.as_ref().map(|b| m.score > b.score).unwrap_or(true) {
+            let better = match best.as_ref() {
+                None => true,
+                // An accepted match always beats a merely higher-scoring one.
+                Some(b) => (m.accepted(), m.score) > (b.accepted(), b.score),
+            };
+            if better {
                 *best = Some(m);
             }
         }
     }
-    macro_rules! consider {
-        ($m:expr) => {
-            take(&mut best_so_far, $m)
+    macro_rules! search {
+        ($fut:expr, |$c:ident| $pick:expr) => {
+            match $fut.await {
+                Ok($c) => {
+                    reached = true;
+                    take(&mut best_so_far, $pick);
+                }
+                Err(e) => last_err = Some(e),
+            }
         };
+    }
+    macro_rules! done {
+        () => {
+            best_so_far.as_ref().map(|b| b.accepted()).unwrap_or(false)
+        };
+    }
+
+    // 0. "The Office UK" / "Shameless US": only TVMaze knows a show's country.
+    if let Some(country) = country_hint(parsed) {
+        search!(p.tvmaze_search(&title), |c| {
+            let local: Vec<Candidate> = c
+                .into_iter()
+                .filter(|x| x.country.as_deref() == Some(country))
+                .collect();
+            best(parsed, &local)
+        });
+        if done!() {
+            return Ok(best_so_far);
+        }
     }
 
     // 1. IMDb suggestions with year
@@ -119,38 +170,56 @@ pub async fn identify(p: &Providers, parsed: &Parsed) -> Option<MatchResult> {
         Some(y) => format!("{title} {y}"),
         None => title.clone(),
     };
-    if let Ok(c) = p.imdb_search(&q1).await {
-        consider!(best(parsed, &c));
-    }
-    if best_so_far.as_ref().map(|b| b.accepted()).unwrap_or(false) {
-        return best_so_far;
+    search!(p.imdb_search(&q1), |c| best(parsed, &c));
+    if done!() {
+        return Ok(best_so_far);
     }
 
     // 2. IMDb without year (year in the query sometimes hurts)
     if parsed.year.is_some() {
-        if let Ok(c) = p.imdb_search(&title).await {
-            consider!(best(parsed, &c));
-        }
-        if best_so_far.as_ref().map(|b| b.accepted()).unwrap_or(false) {
-            return best_so_far;
+        search!(p.imdb_search(&title), |c| best(parsed, &c));
+        if done!() {
+            return Ok(best_so_far);
         }
     }
 
     // 3. Cinemeta catalogue search
-    if let Ok(c) = p.cinemeta_search(&title, kind).await {
-        consider!(best(parsed, &c));
-    }
-    if best_so_far.as_ref().map(|b| b.accepted()).unwrap_or(false) {
-        return best_so_far;
+    search!(p.cinemeta_search(&title, kind), |c| best(parsed, &c));
+    if done!() {
+        return Ok(best_so_far);
     }
 
-    // 4. TVMaze for shows
+    // 4. TVMaze for shows, including alternate titles ("Sousou no Frieren"
+    //    is the Japanese title of "Frieren: Beyond Journey's End").
     if kind == TitleKind::Series {
-        if let Ok(c) = p.tvmaze_search(&title).await {
-            consider!(best(parsed, &c));
+        match p.tvmaze_search(&title).await {
+            Ok(c) => {
+                reached = true;
+                take(&mut best_so_far, best(parsed, &c));
+                if !done!() {
+                    for cand in c.iter().take(3) {
+                        let Some(tvmaze_id) = cand.tvmaze_id else { continue };
+                        let akas = p.tvmaze_akas(tvmaze_id).await.unwrap_or_default();
+                        let alt = akas.iter().map(|a| as_alt_title(parsed, cand, a)).max_by(|a, b| {
+                            a.similarity
+                                .partial_cmp(&b.similarity)
+                                .unwrap_or(std::cmp::Ordering::Equal)
+                        });
+                        take(&mut best_so_far, alt);
+                        if done!() {
+                            break;
+                        }
+                    }
+                }
+            }
+            Err(e) => last_err = Some(e),
         }
     }
-    best_so_far
+
+    match (reached, last_err) {
+        (false, Some(e)) => Err(e),
+        _ => Ok(best_so_far),
+    }
 }
 
 #[cfg(test)]

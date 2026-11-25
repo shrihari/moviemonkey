@@ -31,6 +31,8 @@ anyhow = "1.0.105"
 log = "0.4.35"
 notify = "9.0.0"
 notify-debouncer-mini = "0.8.0"
+tauri-plugin-single-instance = "2.5.5"
+tauri-plugin-window-state = "2.5.0"
 
 [profile.dev.package."*"]
 opt-level = 2

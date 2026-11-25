@@ -12,6 +12,7 @@ import {
   Settings,
   Sparkles,
   Tv,
+  WifiOff,
   type LucideIcon,
 } from 'lucide-react';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
@@ -55,7 +56,9 @@ function NavItem({
       )}
       <span className="flex-1 truncate text-left">{label}</span>
       {dot && <span className="size-1.5 rounded-full bg-accent-strong" />}
-      {count !== undefined && count > 0 && <span className="text-[11.5px] text-ink-3 tabular-nums">{count.toLocaleString()}</span>}
+      {count !== undefined && count > 0 && (
+        <span className="text-[11.5px] text-ink-3 tabular-nums">{count.toLocaleString()}</span>
+      )}
     </button>
   );
 }
@@ -70,7 +73,9 @@ function Section({ title, children, collapsible }: { title: string; children: Re
       >
         {title}
         {collapsible && (
-          <ChevronRight className={clsx('size-3 transition-transform opacity-0 group-hover:opacity-100', open && 'rotate-90')} />
+          <ChevronRight
+            className={clsx('size-3 transition-transform opacity-0 group-hover:opacity-100', open && 'rotate-90')}
+          />
         )}
       </button>
       <AnimatePresence initial={false}>
@@ -140,7 +145,9 @@ export function Sidebar() {
             <NavItem icon={Eye} label="Unwatched" count={counts.unwatched} route={{ name: 'unwatched' }} />
             <NavItem icon={Bookmark} label="Watchlist" count={counts.watchlist} route={{ name: 'watchlist' }} />
             <NavItem icon={Heart} label="Favorites" count={counts.favorites} route={{ name: 'favorites' }} />
-            {unmatched > 0 && <NavItem icon={Sparkles} label="Needs review" count={unmatched} dot route={{ name: 'review' }} />}
+            {unmatched > 0 && (
+              <NavItem icon={Sparkles} label="Needs review" count={unmatched} dot route={{ name: 'review' }} />
+            )}
           </Section>
         )}
 
@@ -177,7 +184,7 @@ export function Sidebar() {
 
 function ProgressCard() {
   const progress = useStore((s) => s.progress);
-  const [lastDone, setLastDone] = useState<{ matched: number; failed: number } | null>(null);
+  const [lastDone, setLastDone] = useState<{ matched: number; failed: number; deferred: number } | null>(null);
   const [wasActive, setWasActive] = useState(false);
 
   useEffect(() => {
@@ -186,13 +193,16 @@ function ProgressCard() {
       setLastDone(null);
     } else if (wasActive) {
       setWasActive(false);
-      if (progress.matched + progress.failed > 0) {
-        setLastDone({ matched: progress.matched, failed: progress.failed });
-        const t = setTimeout(() => setLastDone(null), 5000);
-        return () => clearTimeout(t);
+      if (progress.matched + progress.failed + progress.deferred > 0) {
+        setLastDone({ matched: progress.matched, failed: progress.failed, deferred: progress.deferred });
+        // Offline results stay visible until the automatic retry succeeds.
+        if (!progress.deferred) {
+          const t = setTimeout(() => setLastDone(null), 5000);
+          return () => clearTimeout(t);
+        }
       }
     }
-  }, [progress.active, progress.matched, progress.failed, wasActive]);
+  }, [progress.active, progress.matched, progress.failed, progress.deferred, wasActive]);
 
   const pct = progress.total ? Math.round((progress.done / progress.total) * 100) : 0;
   const show = progress.active || lastDone;
@@ -219,7 +229,9 @@ function ProgressCard() {
                     </span>
                   )}
                 </div>
-                <div className="mt-1.5 text-[11.5px] text-ink-2 truncate">{progress.current?.split('/').pop() ?? ' '}</div>
+                <div className="mt-1.5 text-[11.5px] text-ink-2 truncate">
+                  {progress.current?.split('/').pop() ?? ' '}
+                </div>
                 <div className="mt-2 h-1 rounded-full bg-active overflow-hidden">
                   <motion.div
                     className="h-full rounded-full bg-accent-strong"
@@ -228,6 +240,16 @@ function ProgressCard() {
                   />
                 </div>
               </>
+            ) : lastDone?.deferred ? (
+              <div className="text-[12px]">
+                <div className="flex items-center gap-1.5 font-medium text-ink">
+                  <WifiOff className="size-3.5 text-ink-2" />
+                  Can’t reach metadata services
+                </div>
+                <div className="text-ink-2 mt-0.5 leading-snug">
+                  {lastDone.deferred} title{lastDone.deferred === 1 ? '' : 's'} waiting. Retrying automatically.
+                </div>
+              </div>
             ) : lastDone ? (
               <div className="text-[12px]">
                 <div className="font-medium text-ink">Library up to date</div>

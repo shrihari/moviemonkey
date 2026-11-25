@@ -2,14 +2,7 @@
 // without Tauri) it falls back to an in-memory mock backed by real fixture data,
 // which makes UI work fast and lets the app be previewed anywhere.
 
-import type {
-  Candidate,
-  LibrarySnapshot,
-  Progress,
-  StatePatch,
-  TitleDetail,
-  TitleKind,
-} from './types';
+import type { Candidate, LibrarySnapshot, Progress, StatePatch, TitleDetail, TitleKind } from './types';
 
 export const isTauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
 

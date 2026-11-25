@@ -10,16 +10,46 @@ type Fixture = { snapshot: LibrarySnapshot; details: Record<string, TitleDetail>
 export async function createMockBackend(): Promise<Backend> {
   const fixture = (await import('./fixture.json')).default as unknown as Fixture;
   const full: Fixture = structuredClone(fixture);
-  const startEmpty = new URLSearchParams(location.search).has('empty');
+  const params = new URLSearchParams(location.search);
+  const startEmpty = params.has('empty');
+  // `?big` simulates a ~2,000-title library for performance work.
+  if (params.has('big')) {
+    const base = full.snapshot.titles;
+    full.snapshot.titles = Array.from({ length: 60 }, (_, k) =>
+      base.map((t) => ({
+        ...t,
+        id: k ? `${t.id}~${k}` : t.id,
+        name: k ? `${t.name} ${k + 1}` : t.name,
+        addedAt: t.addedAt - k * 1000,
+      })),
+    ).flat();
+    full.snapshot.stats.movies *= 60;
+    full.snapshot.stats.shows *= 60;
+  }
 
   let snap: LibrarySnapshot = startEmpty
-    ? { titles: [], unmatched: [], folders: [], stats: { movies: 0, shows: 0, episodes: 0, unmatched: 0, totalSize: 0 } }
+    ? {
+        titles: [],
+        unmatched: [],
+        folders: [],
+        stats: { movies: 0, shows: 0, episodes: 0, unmatched: 0, totalSize: 0 },
+      }
     : structuredClone(full.snapshot);
   const details = structuredClone(full.details);
 
   const progressCbs = new Set<(p: Progress) => void>();
   const changedCbs = new Set<() => void>();
-  let progress: Progress = { active: false, phase: 'idle', done: 0, total: 0, current: null, found: 0, matched: 0, failed: 0 };
+  let progress: Progress = {
+    active: false,
+    phase: 'idle',
+    done: 0,
+    total: 0,
+    current: null,
+    found: 0,
+    matched: 0,
+    failed: 0,
+    deferred: 0,
+  };
 
   const emitProgress = (p: Partial<Progress>) => {
     progress = { ...progress, ...p };
@@ -75,10 +105,10 @@ export async function createMockBackend(): Promise<Backend> {
       return structuredClone(snap);
     },
     async getTitle(id) {
-      const d = details[id];
+      const d = details[id.split('~')[0]];
       if (!d) return null;
       const s = snap.titles.find((t) => t.id === id);
-      return structuredClone({ ...d, summary: s ? { ...d.summary, ...s } : d.summary });
+      return structuredClone({ ...d, summary: s ? { ...d.summary, ...s, id } : d.summary });
     },
     async getProgress() {
       return progress;
@@ -88,7 +118,12 @@ export async function createMockBackend(): Promise<Backend> {
       return [1];
     },
     async removeFolder() {
-      snap = { titles: [], unmatched: [], folders: [], stats: { movies: 0, shows: 0, episodes: 0, unmatched: 0, totalSize: 0 } };
+      snap = {
+        titles: [],
+        unmatched: [],
+        folders: [],
+        stats: { movies: 0, shows: 0, episodes: 0, unmatched: 0, totalSize: 0 },
+      };
       emitChanged();
     },
     async rescan() {
@@ -116,7 +151,9 @@ export async function createMockBackend(): Promise<Backend> {
             t.watched = patch.watched;
             if (t.kind === 'series') {
               t.watchedEpisodes = patch.watched ? t.episodeCount : 0;
-              details[id]?.seasons.forEach((x) => x.episodes.forEach((ep) => ep.file && (ep.watched = !!patch.watched)));
+              details[id]?.seasons.forEach((x) =>
+                x.episodes.forEach((ep) => ep.file && (ep.watched = !!patch.watched)),
+              );
             }
           }
           if (patch.favorite !== undefined) t.favorite = patch.favorite;

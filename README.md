@@ -26,7 +26,8 @@
   instead of being wiped.
 - **Fixes itself when it's unsure.** Anything it can't confidently identify lands in *Needs review* with a search
   dialog to pick the right title.
-- **Works offline.** Artwork is cached on disk after first view.
+- **Works offline.** Artwork is cached on disk after first view. Files added while offline wait quietly and are
+  identified automatically once the network is back. They're never wrongly flagged for review.
 
 ## Where the data comes from (all free, no keys)
 
@@ -37,7 +38,10 @@
 | metahub / TMDB image CDN | Posters, backdrops, transparent title logos, episode stills |
 | [TVMaze](https://www.tvmaze.com/api) | Fallback search and episode guides for shows |
 
-Each lookup falls through to the next source if one is down. The IMDb and Cinemeta endpoints are unofficial, so if
+Each lookup falls through to the next source if one is down. Shows marked with a country (`The.Office.UK`) are
+resolved via TVMaze's network country, and foreign or romaji titles (`Sousou no Frieren`) via TVMaze's alternate
+titles. A live regression suite of 52 deliberately hard file names (remakes, sequels, one-word titles, foreign
+films, Radarr/Sonarr naming, anime) currently passes 52/52. The IMDb and Cinemeta endpoints are unofficial, so if
 one changes, only `src-tauri/src/engine/providers.rs` needs updating.
 
 ## Tech
@@ -76,10 +80,13 @@ npx tauri dev -- -- "$PWD/demo-library"   # opens with it added (or drag the fol
 Other scripts:
 
 ```bash
-npm test                         # Vitest (UI logic) + cargo test (parser, matcher, db, cache)
+npm test                         # Vitest (UI logic) + cargo test (parser, matcher, db, cache, perf guard)
+npm run test:live                # live identification suite against the real APIs (52 hard cases)
+npm run lint                     # tsc + prettier --check + clippy -D warnings
+npm run format                   # prettier + rustfmt
 npm run build                    # release .app + .dmg in src-tauri/target/release/bundle
 npm run preview:web              # UI in a plain browser with real fixture data (no Rust needed)
-                                 #   open http://localhost:1420/?empty to replay onboarding + import
+                                 #   ?empty replays onboarding + import, ?big simulates ~2,000 titles
 ```
 
 Headless engine run (great for tuning the matcher):
@@ -104,6 +111,12 @@ cd src-tauri && cargo run --example scan -- ../demo-library
 - Artwork cache: `~/Library/Caches/com.getmoviemonkey.app/images` (clear it from Settings)
 
 Movie Monkey never modifies, moves or renames your media files.
+
+## Performance
+
+A synthetic 2,000-title / 5,000-file library builds its full UI snapshot in ~50 ms (`tests/large_library.rs`).
+Grids render the first screenful immediately and stream in the rest, and the ⌘K palette ranks and caps results,
+so both stay responsive at that size.
 
 ## History
 
