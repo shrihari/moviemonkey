@@ -33,7 +33,7 @@ export function Row({
 
   return (
     <section className="group/row relative mt-9 first:mt-6">
-      <div className="flex items-end justify-between px-10 mb-3.5">
+      <div className="flex items-end justify-between px-10 mb-1.5">
         <div>
           <h2 className="font-display text-[19px] font-semibold tracking-[-0.01em] text-ink">{title}</h2>
           {subtitle && <p className="text-[12px] text-ink-2 mt-0.5">{subtitle}</p>}
@@ -48,7 +48,8 @@ export function Row({
         <div
           ref={ref}
           onScroll={update}
-          className="flex gap-5 overflow-x-auto no-scrollbar px-10 pb-4 pt-1 scroll-px-10 snap-x [overflow-anchor:none]"
+          // pt-3 leaves room for the hover lift: a horizontal scroller clips vertically too
+          className="flex gap-5 overflow-x-auto no-scrollbar px-10 pb-4 pt-3 scroll-px-10 snap-x [overflow-anchor:none]"
         >
           {children}
         </div>
@@ -98,7 +99,7 @@ export function BackdropCard({ t, progress, caption }: { t: TitleSummary; progre
     >
       <button
         onClick={() => openTitle(t.id)}
-        className="relative block w-full aspect-video rounded-xl overflow-hidden bg-sunken shadow-poster transition-[transform,box-shadow] duration-300 ease-[var(--ease-out-expo)] group-hover:-translate-y-1 group-hover:shadow-poster-hover"
+        className="relative block w-full aspect-video rounded-xl overflow-hidden bg-sunken shadow-poster transition-[translate,scale,box-shadow] duration-300 ease-[var(--ease-out-expo)] group-hover:-translate-y-1 group-hover:shadow-poster-hover"
       >
         <FadeImg
           src={t.backdrop}

@@ -5,6 +5,7 @@ import { ContextMenuHost } from './components/ContextMenu';
 import { FixMatchDialog } from './components/FixMatchDialog';
 import { DropOverlay, Toasts } from './components/Overlays';
 import { Sidebar } from './components/Sidebar';
+import { Toolbar } from './components/Toolbar';
 import { Button, Spinner } from './components/ui';
 import { api, isTauri } from './lib/api';
 import { useStore, type Route } from './lib/store';
@@ -126,9 +127,13 @@ export default function App() {
   return (
     <div className="h-full flex">
       <Sidebar />
-      <main className="relative flex-1 min-w-0 my-2 mr-2 rounded-[12px] bg-pane shadow-pane overflow-hidden">
-        {/* drag strip for frameless window */}
-        <div data-tauri-drag-region className="absolute inset-x-0 top-0 h-[44px] z-20" />
+      <main className="@container relative flex-1 min-w-0 my-2 mr-2 rounded-[12px] bg-pane shadow-pane overflow-hidden">
+        {!snapshot || empty ? (
+          // drag strip for the frameless window; the toolbar takes over once there's a library
+          <div data-tauri-drag-region className="absolute inset-x-0 top-0 h-[44px] z-20" />
+        ) : (
+          <Toolbar scrollRef={scrollRef} />
+        )}
         {!snapshot ? (
           <div className="h-full flex items-center justify-center text-ink-3">
             <Spinner />

@@ -8,7 +8,6 @@ import {
   FolderPlus,
   Heart,
   Home,
-  Search,
   Settings,
   Sparkles,
   Tv,
@@ -18,7 +17,7 @@ import {
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { genreIcon } from '../lib/genres';
 import { topGenres, useStore, type Route } from '../lib/store';
-import { Kbd, Spinner } from './ui';
+import { Spinner } from './ui';
 
 function sameRoute(a: Route, b: Route) {
   return a.name === b.name && (a.name !== 'genre' || (b.name === 'genre' && a.genre === b.genre));
@@ -97,7 +96,6 @@ function Section({ title, children, collapsible }: { title: string; children: Re
 
 export function Sidebar() {
   const snapshot = useStore((s) => s.snapshot);
-  const setPalette = useStore((s) => s.setPalette);
   const navigate = useStore((s) => s.navigate);
   const addFolders = useStore((s) => s.addFolders);
   const titles = snapshot?.titles ?? [];
@@ -120,18 +118,7 @@ export function Sidebar() {
       {/* window drag area (traffic lights live here) */}
       <div data-tauri-drag-region className="h-[52px] shrink-0" />
 
-      <div className="px-2.5">
-        <button
-          onClick={() => setPalette(true)}
-          className="w-full flex items-center gap-2.5 h-[30px] px-2.5 rounded-[8px] text-[13px] text-ink-2 hover:bg-hover hover:text-ink transition-colors"
-        >
-          <Search className="size-[16px]" strokeWidth={1.9} />
-          <span className="flex-1 text-left">Search</span>
-          <Kbd>⌘K</Kbd>
-        </button>
-      </div>
-
-      <nav className="flex-1 overflow-y-auto no-scrollbar px-2.5 pt-2 pb-4">
+      <nav className="flex-1 overflow-y-auto no-scrollbar px-2.5 pt-1 pb-4">
         <div className="space-y-px">
           <NavItem icon={Home} label="Home" route={{ name: 'home' }} />
           <NavItem icon={Clapperboard} label="Movies" count={counts.movies} route={{ name: 'movies' }} />
