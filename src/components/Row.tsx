@@ -99,46 +99,54 @@ export function BackdropCard({ t, progress, caption }: { t: TitleSummary; progre
     >
       <button
         onClick={() => openTitle(t.id)}
-        className="relative block w-full aspect-video rounded-xl overflow-hidden bg-sunken shadow-poster transition-[translate,scale,box-shadow] duration-300 ease-[var(--ease-out-expo)] group-hover:-translate-y-1 group-hover:shadow-poster-hover"
+        className="relative isolate block w-full aspect-video rounded-xl overflow-hidden bg-sunken shadow-poster transition-[translate,scale,box-shadow] duration-300 ease-[var(--ease-out-expo)] group-hover:-translate-y-1 group-hover:shadow-poster-hover"
       >
+        {/*
+          The backdrop and everything drawn over it each keep their own GPU layer
+          at all times. Otherwise WebKit gives the zooming backdrop a layer only
+          while it animates and paints the title, caption and play button under
+          it, so they vanish for the length of the zoom.
+        */}
         <FadeImg
           src={t.backdrop}
           fallback={t.poster}
-          className="absolute inset-0 size-full object-cover transition-transform duration-700 group-hover:scale-[1.04]"
+          className="absolute inset-0 size-full object-cover will-change-transform transition-transform duration-700 group-hover:scale-[1.04]"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent" />
-        <div className="absolute inset-x-0 bottom-0 p-3.5 flex items-end gap-3">
-          <div className="flex-1 min-w-0 text-left">
-            {t.logo && logoOk ? (
-              <img
-                src={imgSrc(t.logo)}
-                onError={() => setLogoOk(false)}
-                alt={t.name}
-                className="max-h-[42px] max-w-[180px] object-contain object-left drop-shadow-md"
-                draggable={false}
-              />
-            ) : (
-              <div className="font-serif text-white text-[18px] leading-tight truncate">{t.name}</div>
-            )}
-            {caption && <div className="mt-1.5 text-[11.5px] font-medium text-white/75 truncate">{caption}</div>}
+        <div className="absolute inset-0 transform-gpu">
+          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent" />
+          <div className="absolute inset-x-0 bottom-0 p-3.5 flex items-end gap-3">
+            <div className="flex-1 min-w-0 text-left">
+              {t.logo && logoOk ? (
+                <img
+                  src={imgSrc(t.logo)}
+                  onError={() => setLogoOk(false)}
+                  alt={t.name}
+                  className="max-h-[42px] max-w-[180px] object-contain object-left drop-shadow-md"
+                  draggable={false}
+                />
+              ) : (
+                <div className="font-serif text-white text-[18px] leading-tight truncate">{t.name}</div>
+              )}
+              {caption && <div className="mt-1.5 text-[11.5px] font-medium text-white/75 truncate">{caption}</div>}
+            </div>
+            <div
+              role="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                void playTitle(t);
+              }}
+              className="size-9 shrink-0 rounded-full bg-white text-black flex items-center justify-center opacity-0 scale-90 group-hover:opacity-100 group-hover:scale-100 transition-all duration-300 hover:scale-110"
+            >
+              <Play className="size-4 ml-0.5" fill="currentColor" />
+            </div>
           </div>
-          <div
-            role="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              void playTitle(t);
-            }}
-            className="size-9 shrink-0 rounded-full bg-white text-black flex items-center justify-center opacity-0 scale-90 group-hover:opacity-100 group-hover:scale-100 transition-all duration-300 hover:scale-110"
-          >
-            <Play className="size-4 ml-0.5" fill="currentColor" />
-          </div>
+          {progress !== undefined && progress > 0 && (
+            <div className="absolute bottom-0 inset-x-0 h-[3px] bg-white/20">
+              <div className="h-full bg-accent" style={{ width: `${Math.min(progress, 1) * 100}%` }} />
+            </div>
+          )}
+          <div className="pointer-events-none absolute inset-0 rounded-xl ring-1 ring-inset ring-white/10" />
         </div>
-        {progress !== undefined && progress > 0 && (
-          <div className="absolute bottom-0 inset-x-0 h-[3px] bg-white/20">
-            <div className="h-full bg-accent" style={{ width: `${Math.min(progress, 1) * 100}%` }} />
-          </div>
-        )}
-        <div className="pointer-events-none absolute inset-0 rounded-xl ring-1 ring-inset ring-white/10" />
       </button>
     </div>
   );
