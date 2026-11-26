@@ -1,9 +1,10 @@
-//! Live identification regression suite. Hits the real (free) APIs, so it is
-//! ignored by default:
+//! Live identification regression suite. Hits the real APIs (TMDB needs the
+//! token in src-tauri/.env), so it is ignored by default:
 //!
 //!   cargo test --test identify_live -- --ignored --nocapture
 //!
-//! Each case is a realistic file path and the IMDb id it must resolve to.
+//! Each case is a realistic file path and the IMDb id it must resolve to:
+//! the match is followed through to its details, as the library does.
 
 use futures::StreamExt;
 use movie_monkey_lib::engine::matcher::identify;
@@ -98,7 +99,17 @@ async fn identifies_hard_cases() {
             async move {
                 let parsed = parse_path(Path::new(path));
                 let m = identify(&providers, &parsed).await.ok().flatten();
-                (*path, *expected, parsed, m)
+                // Search results carry TMDB ids; the library title id comes from details.
+                let id = match &m {
+                    Some(m) if m.accepted() => providers
+                        .details(&m.candidate.id, m.candidate.kind, Some(&m.candidate))
+                        .await
+                        .map(|d| d.id)
+                        .unwrap_or_else(|e| format!("details failed: {e}")),
+                    Some(m) => m.candidate.id.clone(),
+                    None => "-".into(),
+                };
+                (*path, *expected, parsed, m, id)
             }
         })
         .buffer_unordered(6)
@@ -106,17 +117,16 @@ async fn identifies_hard_cases() {
         .await;
 
     let mut failures = vec![];
-    for (path, expected, parsed, m) in &results {
-        let (got, ok, detail) = match m {
+    for (path, expected, parsed, m, got) in &results {
+        let (ok, detail) = match m {
             Some(m) => (
-                m.candidate.id.as_str(),
-                m.accepted() && m.candidate.id == *expected,
+                m.accepted() && got == expected,
                 format!(
                     "{} ({:?}) score {:.2} sim {:.2}",
                     m.candidate.title, m.candidate.year, m.score, m.similarity
                 ),
             ),
-            None => ("-", false, "no candidates".to_string()),
+            None => (false, "no candidates".to_string()),
         };
         let mark = if ok { "ok  " } else { "FAIL" };
         println!(
@@ -137,13 +147,14 @@ async fn identifies_hard_cases() {
 
 #[tokio::test]
 #[ignore = "hits live metadata APIs"]
-async fn details_without_hint_use_imdb_year() {
+async fn details_by_imdb_id_use_original_year() {
     use movie_monkey_lib::engine::models::TitleKind;
     let p = Providers::new();
-    // Cinemeta reports US release years for these; IMDb's original year must win.
+    // Some sources report the US release year for these; the original must win.
     for (id, year) in [("tt1798709", 2013), ("tt0245429", 2001), ("tt0211915", 2001)] {
         let meta = p.details(id, TitleKind::Movie, None).await.unwrap();
         assert_eq!(meta.year, Some(year), "{id} {}", meta.name);
+        assert_eq!(meta.id, id, "a refresh must keep the IMDb id");
         assert!(
             meta.backdrop.is_some() && meta.overview.is_some(),
             "{id} lost rich metadata"

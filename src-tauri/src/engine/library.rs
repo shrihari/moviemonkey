@@ -5,7 +5,7 @@ use super::db::{episode_key, now, Db, FileRow, FolderRow};
 use super::matcher;
 use super::models::*;
 use super::parse::{is_video_file, normalise_for_compare, parse_path, search_title, ParsedKind};
-use super::providers::Providers;
+use super::providers::{is_not_found, Providers};
 use anyhow::{anyhow, Result};
 use futures::StreamExt;
 use notify_debouncer_mini::{
@@ -23,6 +23,8 @@ const MIN_VIDEO_BYTES: u64 = 15 * 1024 * 1024;
 const CONCURRENCY: usize = 4;
 /// When the metadata services are unreachable, try again after this long.
 const OFFLINE_RETRY: Duration = Duration::from_secs(90);
+/// Re-fetch metadata this old. TMDB's terms allow caching it for 6 months.
+const REFRESH_AFTER: Duration = Duration::from_secs(150 * 24 * 3600);
 
 const SKIP_DIRS: &[&str] = &[
     "@eaDir",
@@ -195,6 +197,10 @@ impl Library {
         let deferred = self.identify_pending().await?;
         if deferred > 0 {
             self.schedule_retry();
+        } else if jobs.contains(&Job::ScanAll) {
+            if let Err(e) = self.refresh_stale().await {
+                log::warn!("metadata refresh failed: {e:#}");
+            }
         }
         self.set_progress(|p| {
             p.active = false;
@@ -342,15 +348,27 @@ impl Library {
                 return Ok(false);
             }
         };
-        let id = m.candidate.id.clone();
-        let existing = self.db().title(&id)?;
-        if existing.is_none() {
-            let meta = self
-                .providers
-                .details(&id, m.candidate.kind, Some(&m.candidate))
-                .await?;
-            self.db().upsert_title(&meta)?;
-        }
+        // TMDB results carry a TMDB id, but library titles are keyed by IMDb id
+        // where one exists, so look for the title under either before fetching.
+        let cand = &m.candidate;
+        let known = {
+            let db = self.db();
+            match db.title(&cand.id)? {
+                Some(_) => Some(cand.id.clone()),
+                None => match cand.tmdb_id {
+                    Some(tmdb_id) => db.title_id_for_tmdb(cand.kind, tmdb_id)?,
+                    None => None,
+                },
+            }
+        };
+        let id = match known {
+            Some(id) => id,
+            None => {
+                let meta = self.providers.details(&cand.id, cand.kind, Some(cand)).await?;
+                self.db().upsert_title(&meta)?;
+                meta.id
+            }
+        };
         let db = self.db();
         for f in files {
             db.set_file_match(&f.path, "matched", Some(&id), Some(m.score), None)?;
@@ -473,7 +491,7 @@ impl Library {
         let db = self.db();
         db.upsert_title(&meta)?;
         for p in paths {
-            db.set_file_match(p, "manual", Some(id), Some(1.0), None)?;
+            db.set_file_match(p, "manual", Some(&meta.id), Some(1.0), None)?;
             if kind == TitleKind::Movie {
                 db.set_file_episode(p, None, None)?;
             }
@@ -488,6 +506,44 @@ impl Library {
         let kind = self.db().title_kind(id)?.unwrap_or_default();
         let meta = self.providers.details(id, kind, None).await?;
         self.db().upsert_title(&meta)?;
+        self.changed(true);
+        Ok(())
+    }
+
+    /// Re-fetch metadata older than `REFRESH_AFTER`, plus anything still from
+    /// the sources used before TMDB. Stops at the first network error; the
+    /// next full scan picks up the rest.
+    async fn refresh_stale(&self) -> Result<()> {
+        let cutoff = now() - REFRESH_AFTER.as_secs() as i64;
+        let stale = self.db().stale_titles(cutoff)?;
+        if stale.is_empty() {
+            return Ok(());
+        }
+        log::info!("refreshing metadata for {} titles", stale.len());
+        let stream = futures::stream::iter(stale)
+            .map(|(id, kind)| async move {
+                let res = self.providers.details(&id, kind, None).await;
+                (id, res)
+            })
+            .buffer_unordered(CONCURRENCY);
+        futures::pin_mut!(stream);
+        let mut updated = 0;
+        while let Some((id, res)) = stream.next().await {
+            match res {
+                Ok(meta) => {
+                    self.db().upsert_title(&meta)?;
+                    updated += 1;
+                    if updated % 8 == 0 {
+                        self.changed(false);
+                    }
+                }
+                Err(e) if is_not_found(&e) => self.db().mark_title_checked(&id)?,
+                Err(e) => {
+                    log::warn!("refresh of {id} stopped: {e:#}");
+                    break;
+                }
+            }
+        }
         self.changed(true);
         Ok(())
     }
@@ -691,6 +747,9 @@ impl Library {
         Ok(Some(TitleDetail {
             summary,
             writers: t.meta.writers.clone(),
+            people: t.meta.people.clone(),
+            certification: t.meta.certification.clone(),
+            tmdb_id: t.meta.tmdb_id,
             country: t.meta.country.clone(),
             awards: t.meta.awards.clone(),
             released: t.meta.released.clone(),

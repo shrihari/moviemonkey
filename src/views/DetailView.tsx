@@ -21,6 +21,7 @@ import { Badge, Button, Dropdown, IconButton, Spinner } from '../components/ui';
 import {
   fixMatch,
   imdbUrl,
+  tmdbUrl,
   playPath,
   playTarget,
   toggleFavorite,
@@ -31,7 +32,7 @@ import { api } from '../lib/api';
 import { bytes, date, hue, runtime } from '../lib/format';
 import { img } from '../lib/img';
 import { useStore } from '../lib/store';
-import type { EpisodeView, MediaFile, SeasonView, TitleDetail, TitleSummary } from '../lib/types';
+import type { EpisodeView, MediaFile, Person, SeasonView, TitleDetail, TitleSummary } from '../lib/types';
 
 export function DetailView({ id }: { id: string }) {
   const [detail, setDetail] = useState<TitleDetail | null>(null);
@@ -127,7 +128,7 @@ export function DetailView({ id }: { id: string }) {
               <div className="min-w-0">
                 {t.kind === 'series' && detail.seasons.length > 0 && <Episodes t={t} seasons={detail.seasons} />}
                 {t.kind === 'movie' && <Files files={detail.files} />}
-                {t.cast.length > 0 && <Cast names={t.cast} />}
+                {(detail.people.length > 0 || t.cast.length > 0) && <Cast people={detail.people} names={t.cast} />}
               </div>
               <InfoCard t={t} d={detail} />
             </div>
@@ -184,10 +185,16 @@ function MetaLine({ t, detail }: { t: TitleSummary; detail: TitleDetail | null }
       <span key="r" className="inline-flex items-center gap-1">
         <Star className="size-3.5 text-accent" />
         {t.rating.toFixed(1)}
-        <span className="text-white/50 text-[11px] font-normal">IMDb</span>
+        <span className="text-white/50 text-[11px] font-normal">{detail?.source === 'tvmaze' ? 'TVMaze' : 'TMDB'}</span>
       </span>,
     );
   bits.push(<span key="y">{t.kind === 'series' ? t.yearLabel : t.year}</span>);
+  if (detail?.certification)
+    bits.push(
+      <span key="c" className="px-1.5 py-px rounded-[4px] ring-1 ring-inset ring-white/40 text-[11px] font-semibold">
+        {detail.certification}
+      </span>,
+    );
   if (t.kind === 'movie' && t.runtime) bits.push(<span key="rt">{runtime(t.runtime)}</span>);
   if (t.kind === 'series')
     bits.push(
@@ -271,7 +278,18 @@ function Actions({ t, detail }: { t: TitleSummary; detail: TitleDetail | null })
             icon: <FolderOpen />,
             onSelect: () => detail?.files[0] && api.reveal(detail.files[0].path),
           },
-          { label: 'Open on IMDb', icon: <ExternalLink />, onSelect: () => api.openUrl(imdbUrl(t.id)) },
+          ...(detail?.tmdbId
+            ? [
+                {
+                  label: 'Open on TMDB',
+                  icon: <ExternalLink />,
+                  onSelect: () => api.openUrl(tmdbUrl(t.kind, detail.tmdbId!)),
+                },
+              ]
+            : []),
+          ...(t.id.startsWith('tt')
+            ? [{ label: 'Open on IMDb', icon: <ExternalLink />, onSelect: () => api.openUrl(imdbUrl(t.id)) }]
+            : []),
           { separator: true, label: '' },
           {
             label: 'Refresh metadata',
@@ -451,38 +469,62 @@ function Files({ files }: { files: MediaFile[] }) {
   );
 }
 
-function Cast({ names }: { names: string[] }) {
+function Cast({ people, names }: { people: Person[]; names: string[] }) {
   const setPalette = useStore((s) => s.setPalette);
+  const list: Person[] = people.length ? people : names.map((name) => ({ name, role: null, photo: null }));
   return (
     <section className="mt-10">
       <h2 className="font-display text-[19px] font-semibold tracking-[-0.01em] text-ink mb-4">Cast</h2>
-      <div className="flex flex-wrap gap-x-6 gap-y-4">
-        {names.slice(0, 12).map((n) => (
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-x-6 gap-y-4">
+        {list.slice(0, 12).map((p) => (
           <button
-            key={n}
-            onClick={() => setPalette(true, n)}
-            className="flex items-center gap-2.5 group"
-            title={`Find more with ${n}`}
+            key={p.name}
+            onClick={() => setPalette(true, p.name)}
+            className="flex items-center gap-3 group text-left min-w-0"
+            title={`Find more with ${p.name}`}
           >
-            <div
-              className="size-10 rounded-full flex items-center justify-center text-[13px] font-semibold text-white/90 shadow-inner"
-              style={{
-                background: `linear-gradient(140deg, hsl(${hue(n)} 35% 55%), hsl(${(hue(n) + 50) % 360} 40% 35%))`,
-              }}
-            >
-              {n
-                .split(' ')
-                .map((p) => p[0])
-                .slice(0, 2)
-                .join('')}
-            </div>
-            <span className="text-[13px] text-ink group-hover:underline underline-offset-4 decoration-line-strong">
-              {n}
+            <Avatar person={p} />
+            <span className="min-w-0">
+              <span className="block text-[13px] text-ink truncate group-hover:underline underline-offset-4 decoration-line-strong">
+                {p.name}
+              </span>
+              {p.role && <span className="block text-[12px] text-ink-2 truncate">{p.role}</span>}
             </span>
           </button>
         ))}
       </div>
     </section>
+  );
+}
+
+function Avatar({ person }: { person: Person }) {
+  const [failed, setFailed] = useState(false);
+  const initials = person.name
+    .split(' ')
+    .map((p) => p[0])
+    .slice(0, 2)
+    .join('');
+  if (person.photo && !failed) {
+    return (
+      <img
+        src={img(person.photo)}
+        alt=""
+        loading="lazy"
+        onError={() => setFailed(true)}
+        className="size-11 shrink-0 rounded-full object-cover bg-sunken shadow-[0_0_0_0.5px_var(--line-strong)]"
+        draggable={false}
+      />
+    );
+  }
+  return (
+    <div
+      className="size-11 shrink-0 rounded-full flex items-center justify-center text-[13px] font-semibold text-white/90 shadow-inner"
+      style={{
+        background: `linear-gradient(140deg, hsl(${hue(person.name)} 35% 55%), hsl(${(hue(person.name) + 50) % 360} 40% 35%))`,
+      }}
+    >
+      {initials}
+    </div>
   );
 }
 
@@ -514,7 +556,7 @@ function InfoCard({ t, d }: { t: TitleSummary; d: TitleDetail }) {
         </dl>
       </div>
       <p className="mt-3 px-1 text-[11px] text-ink-3">
-        Metadata from {d.source === 'tvmaze' ? 'TVMaze' : d.source === 'imdb' ? 'IMDb' : 'Cinemeta / IMDb'}
+        Metadata from {d.source === 'tvmaze' ? 'TVMaze' : d.source === 'tmdb' ? 'TMDB' : 'an earlier version'}
       </p>
     </aside>
   );

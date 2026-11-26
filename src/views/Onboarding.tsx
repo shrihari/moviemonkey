@@ -49,11 +49,7 @@ export function Onboarding() {
             title="Automatic"
             text="Messy file names in, clean library out."
           />
-          <Feature
-            icon={<KeyRound className="size-4" />}
-            title="No API keys"
-            text="Uses free, open metadata sources."
-          />
+          <Feature icon={<KeyRound className="size-4" />} title="No setup" text="No accounts or API keys to set up." />
           <Feature
             icon={<HardDrive className="size-4" />}
             title="Local-first"

@@ -8,3 +8,4 @@ pub mod matcher;
 pub mod models;
 pub mod parse;
 pub mod providers;
+pub mod tmdb;

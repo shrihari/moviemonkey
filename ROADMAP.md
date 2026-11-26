@@ -16,7 +16,6 @@ date.
 - [ ] **Read the video file itself** (Rust MP4/Matroska header parsing, no ffmpeg). This gives true resolution, HDR
       and runtime for the quality badges, which today come from the file name. Runtime also breaks ties between
       remakes in matching.
-- [ ] **Credit TVMaze** with a visible link in About (their CC BY-SA licence asks for it).
 - [ ] **Local subtitles.** Detect `.srt`/`.ass` files next to videos and show the languages on the detail page.
 - [ ] **Check drag-and-drop from Finder** in the built app (not yet tested end to end).
 
@@ -24,30 +23,6 @@ date.
 
 These block offering a download, not day-to-day use.
 
-- [ ] **Move to official metadata sources.** Make TMDB the main source, keep TVMaze, and drop the IMDb suggestion
-      endpoint and Cinemeta/metahub. IMDb's terms forbid automated data gathering. Cinemeta is Stremio's service
-      with no terms covering other apps, and its artwork is TMDB's without TMDB's licence or credit.
-  - **TMDB free tier:** free for non-commercial use with no daily or monthly quota. There is a soft rate limit
-    "somewhere in the 40 requests per second range"; back off on HTTP 429.
-  - **TMDB conditions:**
-    - Credit TMDB in About/Credits with an approved TMDB logo, less prominent than ours.
-    - Include the notice: _"This product uses the TMDB API but is not endorsed or certified by TMDB."_
-    - Cache data for 6 months at most.
-    - Don't use the data for AI/ML training.
-    - A free download with no ads or charges counts as non-commercial. Charging money or earning revenue needs a
-      written commercial agreement.
-  - **Gains:**
-    - search that knows alternate and foreign titles
-    - cast and crew photos
-    - collections and franchises
-    - localized titles and plots
-    - age ratings and recommendations
-    - "where to stream"
-    - trending and discover lists
-  - **API key:** ship a project key inside the app, as Jellyfin and Kodi do. Optionally let users paste their own key
-    in Settings. A proxy can come later (see _Infrastructure_).
-- [ ] **About / Credits screen** listing every data source with the required attributions.
-- [ ] **Update the "No API keys" copy** in the README, onboarding and Settings › About once a key ships.
 - [ ] **Code signing and notarization.** This needs an Apple Developer ID ($99/year); without it, macOS warns people
       on first launch.
 - [ ] **Auto-update** with the Tauri updater plugin and signed releases on GitHub Releases.
@@ -59,7 +34,11 @@ These block offering a download, not day-to-day use.
 - [ ] **Ratings from Rotten Tomatoes and Metacritic** via OMDb (free key, 1,000 requests per day). This was on the v1
       roadmap.
 - [ ] **HD logos and clear art** from fanart.tv (free personal key).
-- [ ] **Collections, cast pages with photos, recommendations** (TMDB, once it's in).
+- [ ] **Collections, person pages, recommendations, "where to stream"** (TMDB; streaming data must credit
+      JustWatch).
+- [ ] **IMDb ratings** alongside TMDB's score, from IMDb's official ratings dataset (free for non-commercial use,
+      updated daily).
+- [ ] **"Use your own TMDB key"** field in Settings, in case the shared key is ever rate-limited.
 - [ ] **Better anime matching and artwork** from AniList (no key needed).
 - [ ] **Subtitle downloads and hash matching via OpenSubtitles.** The API is free, but downloads are capped at
       5 a day without an account and 20 a day with a free one; VIP is paid. Make it opt-in with the user's own
@@ -85,6 +64,10 @@ shared key.
   - Sidebar matches the window frame (both use the native macOS material).
   - Search, filter and sort moved to a toolbar at the top right of the main pane.
   - Poster hover animates smoothly and is no longer clipped.
+  - Switched to TMDB as the main metadata source (52/52 on the live suite). Dropped the IMDb suggestion
+    endpoint, Cinemeta and metahub. Adds cast photos, age ratings, original release years, TMDB/TVMaze credits,
+    and a 5-month refresh of metadata and artwork. Existing libraries migrate on first launch.
+  - TMDB's official logo and required notice in Settings › About.
   - v2: a ground-up rewrite on Tauri 2 + React.
   - Live matching suite with 52 hard file names, all passing.
   - Offline-safe identification.

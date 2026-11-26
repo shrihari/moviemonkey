@@ -97,7 +97,7 @@ export function FixMatchDialog() {
                   autoFocus
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Search IMDb, Cinemeta…"
+                  placeholder="Search movies and shows, or paste an IMDb id…"
                   className="flex-1 bg-transparent text-[13.5px] text-ink placeholder:text-ink-3 outline-none"
                 />
                 {loading && <Spinner className="size-3.5 text-ink-3" />}

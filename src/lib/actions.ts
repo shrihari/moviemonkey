@@ -1,7 +1,7 @@
 // Title-level actions shared by the grid, context menu, detail view and palette.
 import { api } from './api';
 import { useStore } from './store';
-import type { TitleDetail, TitleSummary } from './types';
+import type { TitleDetail, TitleKind, TitleSummary } from './types';
 import { epCode } from './format';
 
 const toast = (t: string, tone?: 'default' | 'success' | 'error') => useStore.getState().toast(t, tone);
@@ -77,6 +77,10 @@ export async function fixMatch(t: TitleSummary) {
     kind: t.kind,
     label: d.files.length === 1 ? d.files[0].fileName : `${d.files.length} files`,
   });
+}
+
+export function tmdbUrl(kind: TitleKind, tmdbId: number) {
+  return `https://www.themoviedb.org/${kind === 'series' ? 'tv' : 'movie'}/${tmdbId}`;
 }
 
 export function imdbUrl(id: string) {
