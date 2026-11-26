@@ -31,7 +31,7 @@ fn snapshot_of_large_library_is_fast() {
                 genres: vec!["Drama".into(), "Thriller".into()],
                 cast: vec!["Actor One".into(), "Actor Two".into(), "Actor Three".into()],
                 directors: vec!["Some Director".into()],
-                poster: Some(format!("https://images.metahub.space/poster/medium/{id}/img")),
+                poster: Some(format!("https://image.tmdb.org/t/p/w500/{id}.jpg")),
                 ..Default::default()
             };
             db.upsert_title(&meta).unwrap();

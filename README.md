@@ -7,7 +7,7 @@
 <p align="center">
   A beautiful, local-first movie &amp; TV library for your desktop.<br/>
   Drop in a folder of messy files, get back posters, artwork, cast, ratings and episode guides.<br/>
-  <b>No accounts. No API keys. No tracking.</b>
+  <b>No accounts. No setup. No tracking.</b>
 </p>
 
 ---
@@ -24,25 +24,24 @@
   "Continue watching", and Play opens the file in your default player.
 - **Keeps itself up to date.** Watches your folders; new files show up on their own. Unplugged drives show as offline
   instead of being wiped.
-- **Fixes itself when it's unsure.** Anything it can't confidently identify lands in *Needs review* with a search
+- **Fixes itself when it's unsure.** Anything it can't confidently identify lands in _Needs review_ with a search
   dialog to pick the right title.
 - **Works offline.** Artwork is cached on disk after first view. Files added while offline wait quietly and are
   identified automatically once the network is back. They're never wrongly flagged for review.
 
-## Where the data comes from (all free, no keys)
+## Where the data comes from
 
-| Source | Used for |
-| --- | --- |
-| IMDb suggestion endpoint | Fast title search → IMDb ids, year, type |
-| [Cinemeta](https://v3-cinemeta.strem.io) (Stremio's public metadata service) | Overview, cast, director, genres, runtime, rating, trailer, episode lists |
-| metahub / TMDB image CDN | Posters, backdrops, transparent title logos, episode stills |
-| [TVMaze](https://www.tvmaze.com/api) | Fallback search and episode guides for shows |
+| Source                                          | Used for                                                                                                  |
+| ----------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| [TMDB](https://www.themoviedb.org)              | Search, details, cast with photos, age ratings, posters, backdrops, title logos, trailers, episode guides |
+| [TVMaze](https://www.tvmaze.com/api) (CC BY-SA) | Fallback search and episode guides for shows                                                              |
 
-Each lookup falls through to the next source if one is down. Shows marked with a country (`The.Office.UK`) are
-resolved via TVMaze's network country, and foreign or romaji titles (`Sousou no Frieren`) via TVMaze's alternate
-titles. A live regression suite of 52 deliberately hard file names (remakes, sequels, one-word titles, foreign
-films, Radarr/Sonarr naming, anime) currently passes 52/52. The IMDb and Cinemeta endpoints are unofficial, so if
-one changes, only `src-tauri/src/engine/providers.rs` needs updating.
+Users don't need an account or a key: the app ships with a TMDB API token (free for non-commercial use, credited in
+Settings › About). Shows marked with a country (`The.Office.UK`) are resolved by their country of origin, and
+foreign or romaji titles (`Sousou no Frieren`) via TMDB's alternative titles. Library titles keep their IMDb ids,
+so watched state survives a metadata refresh. Metadata and cached artwork are refreshed after 5 months (TMDB allows
+caching for 6). A live regression suite of 52 deliberately hard file names (remakes, sequels, one-word titles,
+foreign films, Radarr/Sonarr naming, anime) currently passes 52/52.
 
 ## Tech
 
@@ -62,14 +61,23 @@ it, either through Tauri's iOS/Android targets or behind a small sync server.
 
 ## Run it
 
-Prerequisites: Node 20+, Rust (via [rustup](https://rustup.rs)), Xcode Command Line Tools on macOS.
+Prerequisites: Node 20+, Rust (via [rustup](https://rustup.rs)), Xcode Command Line Tools on macOS, and a free
+TMDB API token: create an account at [themoviedb.org](https://www.themoviedb.org/settings/api), copy the
+"API Read Access Token", and put it in `src-tauri/.env` (git-ignored):
+
+```bash
+echo "TMDB_API_TOKEN=<your token>" > src-tauri/.env
+```
+
+The build compiles it into the app (`src-tauri/build.rs`). In CI, set `TMDB_API_TOKEN` as a repository secret instead.
+Without a token the app still runs, but only shows can be identified (via TVMaze).
 
 ```bash
 npm install
 npm run dev                      # launches the app with hot reload
 ```
 
-Don't have a movie folder handy? Generate a demo library of realistic, messy release names. The files are *sparse*,
+Don't have a movie folder handy? Generate a demo library of realistic, messy release names. The files are _sparse_,
 so they report multi-GB sizes but take ~0 bytes on disk:
 
 ```bash
@@ -81,7 +89,7 @@ Other scripts:
 
 ```bash
 npm test                         # Vitest (UI logic) + cargo test (parser, matcher, db, cache, perf guard)
-npm run test:live                # live identification suite against the real APIs (52 hard cases)
+npm run test:live                # live identification suite against TMDB/TVMaze (52 hard cases)
 npm run lint                     # tsc + prettier --check + clippy -D warnings
 npm run format                   # prettier + rustfmt
 npm run build                    # release .app + .dmg in src-tauri/target/release/bundle
@@ -97,13 +105,13 @@ cd src-tauri && cargo run --example scan -- ../demo-library
 
 ## Keyboard
 
-| | |
-| --- | --- |
-| ⌘K / ⌘F | Search everything |
-| ⌘O | Add folder |
-| ⌘1–4 | Home · Movies · TV Shows · Watchlist |
-| ⌘, | Settings |
-| Esc / ⌘[ | Back |
+|          |                                      |
+| -------- | ------------------------------------ |
+| ⌘K / ⌘F  | Search everything                    |
+| ⌘O       | Add folder                           |
+| ⌘1–4     | Home · Movies · TV Shows · Watchlist |
+| ⌘,       | Settings                             |
+| Esc / ⌘[ | Back                                 |
 
 ## Where things live
 

@@ -75,6 +75,11 @@ export interface SeasonView {
 export interface TitleDetail {
   summary: TitleSummary;
   writers: string[];
+  /** Cast with character names and photos (TMDB). */
+  people: Person[];
+  /** Age rating, e.g. "PG-13" or "TV-MA". */
+  certification: string | null;
+  tmdbId: number | null;
   country: string | null;
   awards: string | null;
   released: string | null;
@@ -143,8 +148,14 @@ export interface Candidate {
   yearLabel: string | null;
   poster: string | null;
   subtitle: string | null;
-  rank: number | null;
+  popularity: number | null;
   source: string;
+}
+
+export interface Person {
+  name: string;
+  role: string | null;
+  photo: string | null;
 }
 
 export interface StatePatch {

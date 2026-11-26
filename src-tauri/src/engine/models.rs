@@ -42,6 +42,11 @@ pub struct TitleMeta {
     pub directors: Vec<String>,
     pub writers: Vec<String>,
     pub cast: Vec<String>,
+    /// Cast with character names and photos (TMDB). `cast` keeps the plain
+    /// names for search.
+    pub people: Vec<Person>,
+    /// Age rating, e.g. "PG-13" or "TV-MA" (US).
+    pub certification: Option<String>,
     pub country: Option<String>,
     pub awards: Option<String>,
     pub released: Option<String>,
@@ -54,6 +59,14 @@ pub struct TitleMeta {
     pub tmdb_id: Option<u64>,
     pub episodes: Vec<EpisodeMeta>,
     pub source: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
+#[serde(rename_all = "camelCase", default)]
+pub struct Person {
+    pub name: String,
+    pub role: Option<String>,
+    pub photo: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -79,13 +92,17 @@ pub struct Candidate {
     pub year_label: Option<String>,
     pub poster: Option<String>,
     pub subtitle: Option<String>,
-    /// IMDb popularity rank (lower = more popular).
-    pub rank: Option<u64>,
-    /// Weight for non-standard types (TV movie, short, video …).
+    /// How well known the title is, 0–1 (from TMDB vote counts or TVMaze
+    /// weight). Breaks ties between same-named titles.
+    pub popularity: Option<f64>,
+    /// Weight for non-standard types (direct-to-video …).
     pub type_weight: f64,
     pub source: String,
-    /// ISO country of the network (TVMaze only).
+    /// ISO country of origin (TV only), e.g. "GB" for The Office (UK).
     pub country: Option<String>,
+    /// Title in its original language, scored as an alternative.
+    pub original_title: Option<String>,
+    pub tmdb_id: Option<u64>,
     pub tvmaze_id: Option<u64>,
 }
 
@@ -204,6 +221,9 @@ pub struct SeasonView {
 pub struct TitleDetail {
     pub summary: TitleSummary,
     pub writers: Vec<String>,
+    pub people: Vec<Person>,
+    pub certification: Option<String>,
+    pub tmdb_id: Option<u64>,
     pub country: Option<String>,
     pub awards: Option<String>,
     pub released: Option<String>,

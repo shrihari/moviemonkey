@@ -40,7 +40,8 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 
-// Covers IMDb/Cinemeta genres and TVMaze's show genres.
+// TMDB movie and TV genres (TV pairs like "Sci-Fi & Fantasy" arrive split)
+// and TVMaze show genres.
 const ICONS: Record<string, LucideIcon> = {
   action: Zap,
   adventure: Compass,
@@ -60,6 +61,7 @@ const ICONS: Record<string, LucideIcon> = {
   food: UtensilsCrossed,
   'game-show': Gamepad2,
   history: Landmark,
+  kids: Baby,
   horror: Skull,
   legal: Scale,
   medical: Stethoscope,
@@ -68,14 +70,18 @@ const ICONS: Record<string, LucideIcon> = {
   mystery: Puzzle,
   nature: Leaf,
   news: Newspaper,
+  politics: Landmark,
+  reality: Tv,
   'reality-tv': Tv,
   romance: HeartHandshake,
   'sci-fi': Rocket,
   'science-fiction': Rocket,
   short: Timer,
+  soap: HeartHandshake,
   sport: Trophy,
   sports: Trophy,
   supernatural: Ghost,
+  talk: Mic,
   'talk-show': Mic,
   thriller: Activity,
   travel: Plane,

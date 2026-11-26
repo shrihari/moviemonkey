@@ -1,9 +1,15 @@
 //! Disk cache for artwork. The UI asks for `mm://localhost/img?u=<url>&f=<fallback>`
 //! and gets bytes from disk, downloading on first use. Works offline after that.
+//!
+//! Cached files older than `MAX_AGE` are downloaded again (TMDB's terms allow
+//! caching for at most 6 months); if that fails, the old copy is still served.
 
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+use std::time::{Duration, SystemTime};
 use tokio::sync::Semaphore;
+
+const MAX_AGE: Duration = Duration::from_secs(150 * 24 * 3600);
 
 #[derive(Clone)]
 pub struct ImageCache {
@@ -29,8 +35,27 @@ pub fn sniff(bytes: &[u8]) -> Option<&'static str> {
         [b'R', b'I', b'F', b'F', _, _, _, _, b'W', b'E', b'B', b'P', ..] => Some("image/webp"),
         [b'G', b'I', b'F', ..] => Some("image/gif"),
         [_, _, _, _, b'f', b't', b'y', b'p', b'a', b'v', b'i', b'f', ..] => Some("image/avif"),
-        _ => None,
+        _ => {
+            // Some title logos are SVG.
+            let head = std::str::from_utf8(&bytes[..bytes.len().min(256)]).unwrap_or("");
+            let head = head.trim_start_matches('\u{feff}').trim_start();
+            (head.starts_with("<svg") || (head.starts_with("<?xml") && head.contains("<svg")))
+                .then_some("image/svg+xml")
+        }
     }
+}
+
+async fn read_cached(path: &Path) -> Option<(Vec<u8>, &'static str, bool)> {
+    let bytes = tokio::fs::read(path).await.ok()?;
+    let ct = sniff(&bytes)?;
+    let fresh = tokio::fs::metadata(path)
+        .await
+        .and_then(|m| m.modified())
+        .ok()
+        .and_then(|t| SystemTime::now().duration_since(t).ok())
+        .map(|age| age < MAX_AGE)
+        .unwrap_or(true);
+    Some((bytes, ct, fresh))
 }
 
 impl ImageCache {
@@ -52,18 +77,25 @@ impl ImageCache {
             return None;
         }
         let path = self.path_for(url);
-        if let Ok(bytes) = tokio::fs::read(&path).await {
-            if let Some(ct) = sniff(&bytes) {
+        let mut stale = None;
+        if let Some((bytes, ct, fresh)) = read_cached(&path).await {
+            if fresh {
                 return Some((bytes, ct));
             }
+            stale = Some((bytes, ct));
         }
         let _permit = self.gate.acquire().await.ok()?;
-        // Another request may have filled the cache while we waited.
-        if let Ok(bytes) = tokio::fs::read(&path).await {
-            if let Some(ct) = sniff(&bytes) {
-                return Some((bytes, ct));
-            }
+        // Another request may have refreshed the cache while we waited.
+        if let Some((bytes, ct, true)) = read_cached(&path).await {
+            return Some((bytes, ct));
         }
+        match self.download(url, &path).await {
+            Some(hit) => Some(hit),
+            None => stale,
+        }
+    }
+
+    async fn download(&self, url: &str, path: &Path) -> Option<(Vec<u8>, &'static str)> {
         let resp = self.http.get(url).send().await.ok()?;
         if !resp.status().is_success() {
             return None;
@@ -72,7 +104,7 @@ impl ImageCache {
         let ct = sniff(&bytes)?;
         let tmp = path.with_extension("part");
         if tokio::fs::write(&tmp, &bytes).await.is_ok() {
-            let _ = tokio::fs::rename(&tmp, &path).await;
+            let _ = tokio::fs::rename(&tmp, path).await;
         }
         Some((bytes, ct))
     }
@@ -133,5 +165,7 @@ mod tests {
         assert_eq!(f.as_deref(), Some("https://x.y"));
         assert_eq!(fnv1a("abc"), fnv1a("abc"));
         assert_eq!(sniff(&[0xFF, 0xD8, 0xFF, 0x00]), Some("image/jpeg"));
+        assert_eq!(sniff(b"<?xml version=\"1.0\"?>\n<svg xmlns=..."), Some("image/svg+xml"));
+        assert_eq!(sniff(b"<html>nope</html>"), None);
     }
 }

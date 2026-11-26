@@ -1,16 +1,18 @@
-//! Free, key-less metadata providers.
+//! Metadata providers.
 //!
-//! * IMDb suggestion API – fast title search, returns IMDb ids, year, type, poster.
-//! * Cinemeta (Stremio's public metadata service) – rich details keyed by IMDb id:
-//!   overview, cast, director, genres, runtime, rating, backdrop, logo, episodes.
-//! * TVMaze – official free TV API, used as a fallback for shows.
+//! * TMDB (see `tmdb.rs`): search, details, artwork, cast, episodes. The main source.
+//! * TVMaze: free, CC BY-SA TV data. A fallback for shows when TMDB has
+//!   nothing (or can't be reached).
 //!
 //! Everything degrades gracefully: if one service is down, the next one is tried.
 
+use super::matcher::title_similarity;
 use super::models::{Candidate, EpisodeMeta, TitleKind, TitleMeta};
+use super::tmdb;
 use anyhow::{anyhow, Result};
 use serde::de::DeserializeOwned;
 use serde_json::Value;
+use std::sync::Arc;
 use std::time::Duration;
 
 const UA: &str = concat!(
@@ -19,9 +21,29 @@ const UA: &str = concat!(
     " (+https://getmoviemonkey.com)"
 );
 
+/// A provider answered, but doesn't know this title (HTTP 404, or no TMDB
+/// entry for an IMDb id), or can't be asked (no or rejected TMDB token).
+/// Unlike network errors, retrying right away won't help, so callers fall
+/// back to other sources instead.
+#[derive(Debug)]
+pub struct NotFound(pub String);
+
+impl std::fmt::Display for NotFound {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "not found: {}", self.0)
+    }
+}
+
+impl std::error::Error for NotFound {}
+
+pub fn is_not_found(e: &anyhow::Error) -> bool {
+    e.downcast_ref::<NotFound>().is_some()
+}
+
 #[derive(Clone)]
 pub struct Providers {
     http: reqwest::Client,
+    tmdb_token: Option<Arc<str>>,
 }
 
 impl Default for Providers {
@@ -30,7 +52,7 @@ impl Default for Providers {
     }
 }
 
-fn s(v: &Value) -> Option<String> {
+pub(crate) fn s(v: &Value) -> Option<String> {
     match v {
         Value::String(x) if !x.trim().is_empty() => Some(x.trim().to_string()),
         Value::Number(n) => Some(n.to_string()),
@@ -38,7 +60,7 @@ fn s(v: &Value) -> Option<String> {
     }
 }
 
-fn strings(v: &Value) -> Vec<String> {
+pub(crate) fn strings(v: &Value) -> Vec<String> {
     match v {
         Value::Array(a) => a.iter().filter_map(s).collect(),
         Value::String(x) => x
@@ -50,7 +72,7 @@ fn strings(v: &Value) -> Vec<String> {
     }
 }
 
-fn first_year(text: &str) -> Option<i32> {
+pub(crate) fn first_year(text: &str) -> Option<i32> {
     let digits: String = text.chars().skip_while(|c| !c.is_ascii_digit()).take(4).collect();
     (digits.len() == 4).then(|| digits.parse().ok()).flatten()
 }
@@ -73,21 +95,7 @@ fn strip_html(text: &str) -> String {
         .to_string()
 }
 
-/// IMDb image CDN supports on-the-fly resizing via the URL.
-pub fn imdb_resized(url: &str, width: u32) -> String {
-    if let Some(idx) = url.rfind("._V1_") {
-        let ext = url.rsplit('.').next().unwrap_or("jpg");
-        format!("{}._V1_QL80_UX{}_.{}", &url[..idx], width, ext)
-    } else {
-        url.to_string()
-    }
-}
-
-pub fn metahub(kind: &str, imdb: &str) -> String {
-    format!("https://images.metahub.space/{kind}/medium/{imdb}/img")
-}
-
-fn clean_query(q: &str) -> String {
+pub(crate) fn clean_query(q: &str) -> String {
     let q: String = q
         .to_lowercase()
         .chars()
@@ -95,6 +103,22 @@ fn clean_query(q: &str) -> String {
         .map(|c| if c.is_alphanumeric() || c == ' ' { c } else { ' ' })
         .collect();
     q.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+/// The TMDB token: a `TMDB_API_TOKEN` environment variable at run time wins
+/// (handy for trying another key), otherwise the one compiled in by build.rs.
+fn tmdb_token() -> Option<Arc<str>> {
+    std::env::var("TMDB_API_TOKEN")
+        .ok()
+        .filter(|t| !t.trim().is_empty())
+        .or_else(|| option_env!("TMDB_API_TOKEN").map(String::from))
+        .filter(|t| !t.trim().is_empty())
+        .map(|t| Arc::from(t.trim()))
+}
+
+fn is_imdb_id(q: &str) -> bool {
+    let q = q.trim();
+    q.len() >= 9 && q.starts_with("tt") && q[2..].chars().all(|c| c.is_ascii_digit())
 }
 
 impl Providers {
@@ -105,25 +129,48 @@ impl Providers {
             .connect_timeout(Duration::from_secs(10))
             .build()
             .expect("http client");
-        Self { http }
+        let tmdb_token = tmdb_token();
+        if tmdb_token.is_none() {
+            log::error!("no TMDB token: movies can't be identified (set TMDB_API_TOKEN, see README)");
+        }
+        Self { http, tmdb_token }
     }
 
     pub fn client(&self) -> &reqwest::Client {
         &self.http
     }
 
-    async fn get_json<T: DeserializeOwned>(&self, url: &str) -> Result<T> {
+    pub(crate) async fn get_json<T: DeserializeOwned>(&self, url: &str) -> Result<T> {
+        let token = if url.starts_with(tmdb::API) {
+            Some(
+                self.tmdb_token
+                    .clone()
+                    // Treated like "not found" so shows still fall back to TVMaze.
+                    .ok_or_else(|| NotFound("TMDB (no API token in this build)".into()))?,
+            )
+        } else {
+            None
+        };
         let mut delay = Duration::from_millis(400);
         let mut last_err = anyhow!("request failed");
         for attempt in 0..3 {
-            match self.http.get(url).send().await {
+            let mut req = self.http.get(url);
+            if let Some(t) = &token {
+                req = req.bearer_auth(t);
+            }
+            match req.send().await {
                 Ok(resp) => {
                     let status = resp.status();
                     if status.is_success() {
                         return Ok(resp.json::<T>().await?);
                     }
                     if status.as_u16() == 404 {
-                        return Err(anyhow!("not found: {url}"));
+                        return Err(NotFound(url.to_string()).into());
+                    }
+                    // A missing or revoked TMDB token: shows can still use TVMaze.
+                    if token.is_some() && matches!(status.as_u16(), 401 | 403) {
+                        log::error!("TMDB rejected the API token (HTTP {status})");
+                        return Err(NotFound(format!("TMDB (token rejected) {url}")).into());
                     }
                     last_err = anyhow!("HTTP {status} for {url}");
                     if !(status.as_u16() == 429 || status.is_server_error()) {
@@ -143,92 +190,6 @@ impl Providers {
     }
 
     // ---------------------------------------------------------------- search
-
-    /// IMDb's public suggestion endpoint (what the imdb.com search box uses).
-    pub async fn imdb_search(&self, query: &str) -> Result<Vec<Candidate>> {
-        let q = clean_query(query);
-        if q.is_empty() {
-            return Ok(vec![]);
-        }
-        let url = format!(
-            "https://v3.sg.media-imdb.com/suggestion/x/{}.json?includeVideos=0",
-            urlencoding::encode(&q)
-        );
-        let v: Value = self.get_json(&url).await?;
-        let mut out = vec![];
-        for item in v["d"].as_array().cloned().unwrap_or_default() {
-            let id = s(&item["id"]).unwrap_or_default();
-            if !id.starts_with("tt") {
-                continue;
-            }
-            let qid = s(&item["qid"]).unwrap_or_default();
-            let (kind, weight) = match qid.as_str() {
-                "movie" => (TitleKind::Movie, 1.0),
-                "tvMovie" => (TitleKind::Movie, 0.9),
-                "tvSpecial" => (TitleKind::Movie, 0.75),
-                "video" => (TitleKind::Movie, 0.7),
-                "short" | "tvShort" => (TitleKind::Movie, 0.55),
-                "tvSeries" => (TitleKind::Series, 1.0),
-                "tvMiniSeries" => (TitleKind::Series, 0.95),
-                _ => continue,
-            };
-            out.push(Candidate {
-                id,
-                kind,
-                title: s(&item["l"]).unwrap_or_default(),
-                year: item["y"].as_i64().map(|y| y as i32),
-                year_label: s(&item["yr"]).or_else(|| item["y"].as_i64().map(|y| y.to_string())),
-                poster: item["i"]["imageUrl"].as_str().map(|u| imdb_resized(u, 500)),
-                subtitle: s(&item["s"]),
-                rank: item["rank"].as_u64(),
-                type_weight: weight,
-                source: "imdb".into(),
-                country: None,
-                tvmaze_id: None,
-            });
-        }
-        Ok(out)
-    }
-
-    pub async fn cinemeta_search(&self, query: &str, kind: TitleKind) -> Result<Vec<Candidate>> {
-        let q = clean_query(query);
-        if q.is_empty() {
-            return Ok(vec![]);
-        }
-        let url = format!(
-            "https://v3-cinemeta.strem.io/catalog/{}/top/search={}.json",
-            kind.as_str(),
-            urlencoding::encode(&q)
-        );
-        let v: Value = self.get_json(&url).await?;
-        Ok(v["metas"]
-            .as_array()
-            .cloned()
-            .unwrap_or_default()
-            .iter()
-            .filter_map(|m| {
-                let id = s(&m["imdb_id"]).or_else(|| s(&m["id"]))?;
-                if !id.starts_with("tt") {
-                    return None;
-                }
-                let release = s(&m["releaseInfo"]);
-                Some(Candidate {
-                    id: id.clone(),
-                    kind,
-                    title: s(&m["name"]).unwrap_or_default(),
-                    year: release.as_deref().and_then(first_year),
-                    year_label: release,
-                    poster: Some(metahub("poster", &id)),
-                    subtitle: None,
-                    rank: None,
-                    type_weight: 1.0,
-                    source: "cinemeta".into(),
-                    country: None,
-                    tvmaze_id: None,
-                })
-            })
-            .collect())
-    }
 
     pub async fn tvmaze_search(&self, query: &str) -> Result<Vec<Candidate>> {
         let q = clean_query(query);
@@ -254,14 +215,13 @@ impl Providers {
                     year_label: s(&show["premiered"]).map(|p| p[..4.min(p.len())].to_string()),
                     poster: s(&show["image"]["medium"]),
                     subtitle: s(&network["name"]),
-                    // TVMaze "weight" is popularity 0–100; map it onto the
-                    // IMDb-rank scale the matcher understands (100 -> rank 1).
-                    rank: show["weight"]
-                        .as_f64()
-                        .map(|w| 10f64.powf(7.0 * (1.0 - w.clamp(0.0, 100.0) / 100.0)) as u64),
+                    // TVMaze "weight" is popularity 0–100.
+                    popularity: show["weight"].as_f64().map(|w| w.clamp(0.0, 100.0) / 100.0),
                     type_weight: 1.0,
                     source: "tvmaze".into(),
                     country: s(&network["country"]["code"]),
+                    original_title: None,
+                    tmdb_id: None,
                     tvmaze_id: show["id"].as_u64(),
                 })
             })
@@ -281,125 +241,54 @@ impl Providers {
             .collect())
     }
 
-    /// Combined search used by the "Fix match" dialog.
+    /// Search used by the "Fix match" dialog: movies and shows from TMDB
+    /// (an IMDb id like "tt0133093" works too), TVMaze if TMDB is unavailable.
     pub async fn search_all(&self, query: &str, kind: Option<TitleKind>) -> Vec<Candidate> {
-        let imdb = self.imdb_search(query);
-        let cm_movie = self.cinemeta_search(query, TitleKind::Movie);
-        let cm_series = self.cinemeta_search(query, TitleKind::Series);
-        let (imdb, cm_movie, cm_series) = futures::join!(imdb, cm_movie, cm_series);
-        let mut out: Vec<Candidate> = vec![];
-        let mut push = |c: Candidate| {
-            if kind.map(|k| k == c.kind).unwrap_or(true) && !out.iter().any(|o| o.id == c.id) {
-                out.push(c);
+        let wants = |k: TitleKind| kind.map(|x| x == k).unwrap_or(true);
+        let mut out: Vec<Candidate> = if is_imdb_id(query) {
+            self.tmdb_find_imdb(query.trim()).await.unwrap_or_default()
+        } else {
+            let movies = async {
+                match wants(TitleKind::Movie) {
+                    true => self.tmdb_search(query, TitleKind::Movie, None).await,
+                    false => Ok(vec![]),
+                }
+            };
+            let shows = async {
+                match wants(TitleKind::Series) {
+                    true => self.tmdb_search(query, TitleKind::Series, None).await,
+                    false => Ok(vec![]),
+                }
+            };
+            let (movies, shows) = futures::join!(movies, shows);
+            let tmdb_failed = movies.is_err() && shows.is_err();
+            let mut all: Vec<Candidate> = movies
+                .unwrap_or_default()
+                .into_iter()
+                .take(12)
+                .chain(shows.unwrap_or_default().into_iter().take(12))
+                .collect();
+            if tmdb_failed && wants(TitleKind::Series) {
+                all = self.tvmaze_search(query).await.unwrap_or_default();
             }
+            // Closest title first, popularity breaks ties.
+            let rank = |c: &Candidate| {
+                title_similarity(query, &c.title).max(
+                    c.original_title
+                        .as_deref()
+                        .map(|o| title_similarity(query, o))
+                        .unwrap_or(0.0),
+                ) * 0.7
+                    + c.popularity.unwrap_or(0.0) * 0.3
+            };
+            all.sort_by(|a, b| rank(b).partial_cmp(&rank(a)).unwrap_or(std::cmp::Ordering::Equal));
+            all
         };
-        for c in imdb.unwrap_or_default() {
-            push(c);
-        }
-        for c in cm_movie.unwrap_or_default().into_iter().take(8) {
-            push(c);
-        }
-        for c in cm_series.unwrap_or_default().into_iter().take(8) {
-            push(c);
-        }
+        out.retain(|c| wants(c.kind));
         out
     }
 
     // --------------------------------------------------------------- details
-
-    pub async fn cinemeta_meta(&self, id: &str, kind: TitleKind) -> Result<TitleMeta> {
-        let url = format!("https://v3-cinemeta.strem.io/meta/{}/{}.json", kind.as_str(), id);
-        let v: Value = self.get_json(&url).await?;
-        let m = &v["meta"];
-        if m.is_null() || s(&m["name"]).is_none() {
-            return Err(anyhow!("cinemeta has no entry for {id}"));
-        }
-        let release = s(&m["releaseInfo"]).or_else(|| s(&m["year"]));
-        let mut genres = strings(&m["genres"]);
-        if genres.is_empty() {
-            genres = strings(&m["genre"]);
-        }
-        let runtime = s(&m["runtime"]).and_then(|r| {
-            let digits: String = r.chars().take_while(|c| c.is_ascii_digit()).collect();
-            // Some entries are "2h 16min"
-            if r.contains('h') && !r.trim_start_matches(char::is_numeric).starts_with("min") {
-                let mut mins = 0u32;
-                for part in r.split_whitespace() {
-                    let n: u32 = part
-                        .chars()
-                        .take_while(|c| c.is_ascii_digit())
-                        .collect::<String>()
-                        .parse()
-                        .unwrap_or(0);
-                    if part.ends_with('h') {
-                        mins += n * 60
-                    } else {
-                        mins += n
-                    }
-                }
-                (mins > 0).then_some(mins)
-            } else {
-                digits.parse().ok()
-            }
-        });
-        let trailer = m["trailers"]
-            .as_array()
-            .and_then(|a| a.iter().find_map(|t| s(&t["source"])))
-            .or_else(|| {
-                m["trailerStreams"]
-                    .as_array()
-                    .and_then(|a| a.iter().find_map(|t| s(&t["ytId"])))
-            });
-        let episodes = m["videos"]
-            .as_array()
-            .map(|vids| {
-                vids.iter()
-                    .filter_map(|e| {
-                        let season = e["season"].as_u64()? as u32;
-                        let episode = e["episode"].as_u64().or_else(|| e["number"].as_u64())? as u32;
-                        Some(EpisodeMeta {
-                            season,
-                            episode,
-                            name: s(&e["name"])
-                                .or_else(|| s(&e["title"]))
-                                .unwrap_or_else(|| format!("Episode {episode}")),
-                            overview: s(&e["overview"]).or_else(|| s(&e["description"])),
-                            thumbnail: s(&e["thumbnail"]),
-                            released: s(&e["released"]).or_else(|| s(&e["firstAired"])),
-                            rating: s(&e["rating"]).and_then(|r| r.parse().ok()),
-                        })
-                    })
-                    .collect()
-            })
-            .unwrap_or_default();
-
-        Ok(TitleMeta {
-            id: id.to_string(),
-            kind,
-            name: s(&m["name"]).unwrap_or_default(),
-            year: release.as_deref().and_then(first_year),
-            year_label: release,
-            overview: s(&m["description"]),
-            genres,
-            runtime,
-            rating: s(&m["imdbRating"]).and_then(|r| r.parse().ok()),
-            directors: strings(&m["director"]),
-            writers: strings(&m["writer"]),
-            cast: strings(&m["cast"]),
-            country: s(&m["country"]),
-            awards: s(&m["awards"]),
-            released: s(&m["released"]),
-            status: s(&m["status"]),
-            poster: Some(metahub("poster", id)),
-            poster_alt: s(&m["poster"]),
-            backdrop: s(&m["background"]).map(|_| metahub("background", id)),
-            logo: s(&m["logo"]).map(|_| metahub("logo", id)),
-            trailer,
-            tmdb_id: m["moviedb_id"].as_u64(),
-            episodes,
-            source: "cinemeta".into(),
-        })
-    }
 
     pub async fn tvmaze_meta(&self, imdb: &str) -> Result<TitleMeta> {
         let show: Value = self
@@ -457,79 +346,65 @@ impl Providers {
         })
     }
 
-    /// Best-effort full metadata for an IMDb id, with fallbacks.
+    /// Full metadata for a title id: an IMDb id ("tt…") or a TMDB key
+    /// ("tmdb-movie-603"). IMDb ids are kept as the title's id, so a refresh
+    /// never moves a title (and its watched state) to a new id.
+    ///
+    /// Network errors are returned as errors so the caller retries later.
+    /// When TMDB simply doesn't know the title, shows fall back to TVMaze and
+    /// anything else to what the search result (`hint`) said.
     pub async fn details(&self, id: &str, kind: TitleKind, hint: Option<&Candidate>) -> Result<TitleMeta> {
-        // Manual matches and refreshes arrive without a search hit; look the id
-        // up on IMDb so we still get its canonical year and a fallback poster.
-        let fetched;
-        let hint = match hint {
-            Some(h) => Some(h),
-            None => {
-                fetched = self
-                    .imdb_search(id)
-                    .await
-                    .ok()
-                    .and_then(|c| c.into_iter().find(|c| c.id == id));
-                fetched.as_ref()
-            }
+        let target: Result<(TitleKind, u64)> = if let Some(t) = tmdb::parse_tmdb_key(id) {
+            Ok(t)
+        } else if let Some(n) = hint.and_then(|h| h.tmdb_id) {
+            Ok((kind, n))
+        } else if id.starts_with("tt") {
+            self.tmdb_find_imdb(id).await.and_then(|found| {
+                found
+                    .iter()
+                    .find(|c| c.kind == kind)
+                    .or(found.first())
+                    .and_then(|c| Some((c.kind, c.tmdb_id?)))
+                    .ok_or_else(|| NotFound(format!("{id} on TMDB")).into())
+            })
+        } else {
+            Err(NotFound(id.to_string()).into())
         };
-        match self.cinemeta_meta(id, kind).await {
-            Ok(mut meta) => {
-                if kind == TitleKind::Series && meta.episodes.is_empty() {
-                    if let Ok(tv) = self.tvmaze_meta(id).await {
-                        meta.episodes = tv.episodes;
-                        if meta.overview.is_none() {
-                            meta.overview = tv.overview;
-                        }
+        let err = match target {
+            Ok((k, n)) => match self.tmdb_details(k, n).await {
+                Ok(mut meta) => {
+                    if id.starts_with("tt") {
+                        meta.id = id.to_string();
                     }
+                    return Ok(meta);
                 }
-                if let Some(h) = hint {
-                    // Cinemeta sometimes reports a later (US) release year for
-                    // foreign films; IMDb's own year is the original release.
-                    if kind == TitleKind::Movie && h.source == "imdb" {
-                        if let Some(y) = h.year {
-                            meta.year = Some(y);
-                            meta.year_label = Some(y.to_string());
-                        }
-                    }
-                    if meta.poster_alt.is_none()
-                        || meta
-                            .poster_alt
-                            .as_deref()
-                            .map(|p| p.contains("metahub"))
-                            .unwrap_or(false)
-                    {
-                        meta.poster_alt = h.poster.clone().or(meta.poster_alt);
-                    }
-                }
-                Ok(meta)
-            }
-            Err(cm_err) => {
-                if kind == TitleKind::Series {
-                    if let Ok(mut tv) = self.tvmaze_meta(id).await {
-                        tv.poster_alt = hint.and_then(|h| h.poster.clone());
-                        return Ok(tv);
-                    }
-                }
-                // Last resort: what the search result told us.
-                let h = hint.ok_or(cm_err)?;
-                Ok(TitleMeta {
-                    id: id.to_string(),
-                    kind,
-                    name: h.title.clone(),
-                    year: h.year,
-                    year_label: h.year_label.clone(),
-                    cast: h
-                        .subtitle
-                        .as_deref()
-                        .map(|s| s.split(", ").map(String::from).collect())
-                        .unwrap_or_default(),
-                    poster: h.poster.clone(),
-                    source: h.source.clone(),
-                    ..Default::default()
-                })
+                Err(e) => e,
+            },
+            Err(e) => e,
+        };
+        if !is_not_found(&err) {
+            return Err(err);
+        }
+        if kind == TitleKind::Series && id.starts_with("tt") {
+            match self.tvmaze_meta(id).await {
+                Ok(tv) => return Ok(tv),
+                Err(e) if !is_not_found(&e) => return Err(e),
+                Err(_) => {}
             }
         }
+        // Last resort: what the search result told us.
+        let h = hint.ok_or(err)?;
+        Ok(TitleMeta {
+            id: id.to_string(),
+            kind,
+            name: h.title.clone(),
+            year: h.year,
+            year_label: h.year_label.clone(),
+            poster: h.poster.clone(),
+            tmdb_id: h.tmdb_id,
+            source: h.source.clone(),
+            ..Default::default()
+        })
     }
 }
 
@@ -541,11 +416,11 @@ mod tests {
     fn helpers() {
         assert_eq!(first_year("2008–2013"), Some(2008));
         assert_eq!(first_year("abc"), None);
-        assert_eq!(
-            imdb_resized("https://m.media-amazon.com/images/M/MV5Babc@._V1_.jpg", 500),
-            "https://m.media-amazon.com/images/M/MV5Babc@._V1_QL80_UX500_.jpg"
-        );
         assert_eq!(clean_query("Ocean's Eleven: (2001)"), "oceans eleven 2001");
         assert_eq!(strip_html("<p>Hi &amp; bye</p>"), "Hi & bye");
+        assert!(is_imdb_id(" tt0133093 "));
+        assert!(!is_imdb_id("tt12") && !is_imdb_id("The Matrix"));
+        assert!(is_not_found(&NotFound("x".into()).into()));
+        assert!(!is_not_found(&anyhow!("HTTP 500")));
     }
 }

@@ -185,7 +185,7 @@ export async function createMockBackend(): Promise<Backend> {
           yearLabel: t.yearLabel,
           poster: t.poster,
           subtitle: t.cast.slice(0, 2).join(', '),
-          rank: null,
+          popularity: null,
           source: 'mock',
         }));
     },

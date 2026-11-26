@@ -106,10 +106,19 @@ export function SettingsView() {
           <img src={monkey} alt="" className="size-12" />
           <div className="text-[12.5px] text-ink-2 leading-relaxed">
             <div className="text-[14px] font-semibold text-ink">Movie Monkey 2</div>
-            Metadata from IMDb suggestions, Cinemeta and TVMaze. Artwork via metahub / TMDB. No accounts, no API keys,
-            no tracking.
+            No accounts, no setup, no tracking. Your files never leave your disk.
           </div>
         </div>
+        <Credit
+          name="TMDB"
+          url="https://www.themoviedb.org"
+          text="Movie and TV metadata and images. This product uses the TMDB API but is not endorsed or certified by TMDB."
+        />
+        <Credit
+          name="TVMaze"
+          url="https://www.tvmaze.com"
+          text="Additional TV show data, licensed under CC BY-SA 4.0."
+        />
       </Group>
     </div>
   );
@@ -124,6 +133,20 @@ function Group({ title, description, children }: { title: string; description?: 
         {children}
       </div>
     </section>
+  );
+}
+
+function Credit({ name, url, text }: { name: string; url: string; text: string }) {
+  return (
+    <div className="flex items-start gap-4 px-4 py-3.5">
+      <div className="flex-1 text-[12.5px] text-ink-2 leading-relaxed">
+        <div className="text-[13px] font-medium text-ink">Data from {name}</div>
+        {text}
+      </div>
+      <Button size="sm" variant="ghost" onClick={() => api.openUrl(url)}>
+        {url.replace('https://www.', '')}
+      </Button>
+    </div>
   );
 }
 

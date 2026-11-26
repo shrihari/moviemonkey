@@ -54,6 +54,9 @@ pub fn score(parsed: &Parsed, c: &Candidate) -> f64 {
         (Some(q), Some(y)) if q == y => 0.22,
         (Some(q), Some(y)) if (q - y).abs() == 1 => 0.12,
         (Some(_), Some(_)) => -0.30,
+        // A dated file against an undated entry: usually a placeholder or
+        // unreleased title ("Goa Trip 2019" home video vs an empty "Goa Trip").
+        (Some(_), None) => -0.15,
         // Without a year, lean on popularity a little more
         _ => 0.06,
     };
@@ -61,9 +64,8 @@ pub fn score(parsed: &Parsed, c: &Candidate) -> f64 {
         sc -= 0.5;
     }
     sc *= 0.7 + 0.3 * c.type_weight;
-    if let Some(rank) = c.rank {
-        let pop = 1.0 - ((rank.max(1) as f64).log10() / 7.0).clamp(0.0, 1.0);
-        sc += 0.08 * pop;
+    if let Some(pop) = c.popularity {
+        sc += 0.08 * pop.clamp(0.0, 1.0);
     }
     sc
 }
@@ -103,6 +105,19 @@ fn as_alt_title(parsed: &Parsed, c: &Candidate, alt: &str) -> MatchResult {
     }
 }
 
+/// Shows whose country of origin is `country` ("GB" for "The.Office.UK").
+fn from_country(cands: Vec<Candidate>, country: &str) -> Vec<Candidate> {
+    cands
+        .into_iter()
+        .filter(|c| {
+            c.country
+                .as_deref()
+                .map(|cs| cs.split(',').any(|x| x == country))
+                .unwrap_or(false)
+        })
+        .collect()
+}
+
 /// Query providers in order of quality until a confident match appears.
 ///
 /// Returns the best candidate even when below the threshold, so the UI can
@@ -121,6 +136,8 @@ pub async fn identify(p: &Providers, parsed: &Parsed) -> anyhow::Result<Option<M
     let mut best_so_far: Option<MatchResult> = None;
     let mut reached = false;
     let mut last_err: Option<anyhow::Error> = None;
+    // Every TMDB result seen, for the alternative-title pass.
+    let mut pool: Vec<Candidate> = vec![];
 
     fn take(best: &mut Option<MatchResult>, m: Option<MatchResult>) {
         if let Some(m) = m {
@@ -151,50 +168,88 @@ pub async fn identify(p: &Providers, parsed: &Parsed) -> anyhow::Result<Option<M
         };
     }
 
-    // 0. "The Office UK" / "Shameless US": only TVMaze knows a show's country.
-    if let Some(country) = country_hint(parsed) {
-        search!(p.tvmaze_search(&title), |c| {
-            let local: Vec<Candidate> = c
-                .into_iter()
-                .filter(|x| x.country.as_deref() == Some(country))
-                .collect();
-            best(parsed, &local)
+    // 0. "The Office UK" / "Shameless US": choose among shows from that country.
+    let country = country_hint(parsed).filter(|_| kind == TitleKind::Series);
+    if let Some(country) = country {
+        search!(p.tmdb_search(&title, kind, None), |c| {
+            pool.extend(c.iter().cloned());
+            best(parsed, &from_country(c, country))
         });
         if done!() {
             return Ok(best_so_far);
         }
     }
 
-    // 1. IMDb suggestions with year
-    let q1 = match parsed.year {
-        Some(y) => format!("{title} {y}"),
-        None => title.clone(),
-    };
-    search!(p.imdb_search(&q1), |c| best(parsed, &c));
-    if done!() {
-        return Ok(best_so_far);
-    }
-
-    // 2. IMDb without year (year in the query sometimes hurts)
+    // 1. TMDB with the year from the file name (for movies it matches a
+    //    release in any country, so festival or foreign dates still hit).
     if parsed.year.is_some() {
-        search!(p.imdb_search(&title), |c| best(parsed, &c));
+        search!(p.tmdb_search(&title, kind, parsed.year), |c| {
+            pool.extend(c.iter().cloned());
+            best(parsed, &c)
+        });
         if done!() {
             return Ok(best_so_far);
         }
     }
 
-    // 3. Cinemeta catalogue search
-    search!(p.cinemeta_search(&title, kind), |c| best(parsed, &c));
+    // 2. TMDB without the year (the file's year is sometimes off).
+    if parsed.year.is_some() || country.is_none() {
+        search!(p.tmdb_search(&title, kind, None), |c| {
+            pool.extend(c.iter().cloned());
+            best(parsed, &c)
+        });
+        if done!() {
+            return Ok(best_so_far);
+        }
+    }
+
+    // 3. Original and alternative titles of the closest results.
+    //    "Sousou no Frieren" is the romaji title of "Frieren: Beyond Journey's
+    //    End"; "Star Wars Episode IV A New Hope" is an alternative title of
+    //    "Star Wars". TMDB's search finds them, but under their main title.
+    let mut seen = std::collections::HashSet::new();
+    pool.retain(|c| seen.insert(c.id.clone()));
+    if let Some(country) = country {
+        pool = from_country(pool, country);
+    }
+    for c in &pool {
+        if let Some(original) = &c.original_title {
+            take(&mut best_so_far, Some(as_alt_title(parsed, c, original)));
+        }
+    }
     if done!() {
         return Ok(best_so_far);
     }
+    let mut closest: Vec<&Candidate> = pool.iter().collect();
+    closest.sort_by(|a, b| {
+        score(parsed, b)
+            .partial_cmp(&score(parsed, a))
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
+    for cand in closest.into_iter().take(3) {
+        let Some(tmdb_id) = cand.tmdb_id else { continue };
+        search!(p.tmdb_alt_titles(cand.kind, tmdb_id), |alts| alts
+            .iter()
+            .map(|a| as_alt_title(parsed, cand, a))
+            .max_by(|a, b| a
+                .score
+                .partial_cmp(&b.score)
+                .unwrap_or(std::cmp::Ordering::Equal)));
+        if done!() {
+            return Ok(best_so_far);
+        }
+    }
 
-    // 4. TVMaze for shows, including alternate titles ("Sousou no Frieren"
-    //    is the Japanese title of "Frieren: Beyond Journey's End").
+    // 4. TVMaze for shows, with its alternate titles: a fallback for when
+    //    TMDB has nothing or can't be reached.
     if kind == TitleKind::Series {
         match p.tvmaze_search(&title).await {
             Ok(c) => {
                 reached = true;
+                let c = match country {
+                    Some(country) => from_country(c, country),
+                    None => c,
+                };
                 take(&mut best_so_far, best(parsed, &c));
                 if !done!() {
                     for cand in c.iter().take(3) {
@@ -227,13 +282,14 @@ mod tests {
     use super::*;
     use crate::engine::parse::parse_name;
 
+    /// `rank`: an IMDb-style popularity rank (lower = better known).
     fn cand(title: &str, year: i32, kind: TitleKind, rank: u64) -> Candidate {
         Candidate {
             id: format!("tt{rank}"),
             kind,
             title: title.into(),
             year: Some(year),
-            rank: Some(rank),
+            popularity: Some(1.0 - ((rank.max(1) as f64).log10() / 7.0).clamp(0.0, 1.0)),
             type_weight: 1.0,
             ..Default::default()
         }
@@ -279,6 +335,11 @@ mod tests {
         assert!(!b.accepted(), "score {}", b.score);
         let p = parse_name("Goa Trip 2019 - Day 2");
         let b = best(&p, &[cand("Rodina trip", 2019, TitleKind::Movie, 900000)]).unwrap();
+        assert!(!b.accepted(), "score {} sim {}", b.score, b.similarity);
+        // Same name, but an undated entry nobody has rated.
+        let mut empty = cand("Goa Trip", 2019, TitleKind::Movie, 10_000_000);
+        empty.year = None;
+        let b = best(&p, &[empty]).unwrap();
         assert!(!b.accepted(), "score {} sim {}", b.score, b.similarity);
     }
 }

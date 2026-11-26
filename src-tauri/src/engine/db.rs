@@ -336,6 +336,47 @@ impl Db {
         Ok(rows)
     }
 
+    /// The library title already matched to this TMDB entry, if any.
+    pub fn title_id_for_tmdb(&self, kind: TitleKind, tmdb_id: u64) -> Result<Option<String>> {
+        Ok(self
+            .conn
+            .query_row(
+                "SELECT id FROM titles WHERE kind = ?1 AND json_extract(meta, '$.tmdbId') = ?2 LIMIT 1",
+                params![kind.as_str(), tmdb_id as i64],
+                |r| r.get(0),
+            )
+            .optional()?)
+    }
+
+    /// Titles whose metadata should be fetched again: last updated before
+    /// `before`, or still from a source the app no longer uses.
+    pub fn stale_titles(&self, before: i64) -> Result<Vec<(String, TitleKind)>> {
+        let mut st = self.conn.prepare(
+            "SELECT id, kind FROM titles
+             WHERE updated_at < ?1 OR json_extract(meta, '$.source') IN ('cinemeta', 'imdb')
+             ORDER BY updated_at",
+        )?;
+        let rows = st
+            .query_map(params![before], |r| {
+                Ok((r.get::<_, String>(0)?, TitleKind::from_db(&r.get::<_, String>(1)?)))
+            })?
+            .collect::<rusqlite::Result<Vec<_>>>()?;
+        Ok(rows)
+    }
+
+    /// A refresh found no newer data for this title: keep what we have and
+    /// don't ask again until it's due.
+    pub fn mark_title_checked(&self, id: &str) -> Result<()> {
+        self.conn.execute(
+            "UPDATE titles SET updated_at = ?2,
+               meta = CASE WHEN json_extract(meta, '$.source') IN ('cinemeta', 'imdb')
+                           THEN json_set(meta, '$.source', 'legacy') ELSE meta END
+             WHERE id = ?1",
+            params![id, now()],
+        )?;
+        Ok(())
+    }
+
     pub fn title_kind(&self, id: &str) -> Result<Option<TitleKind>> {
         Ok(self
             .conn
