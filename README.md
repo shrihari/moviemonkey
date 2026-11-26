@@ -103,6 +103,49 @@ Headless engine run (great for tuning the matcher):
 cd src-tauri && cargo run --example scan -- ../demo-library
 ```
 
+App icon: `npm run icon` renders it from `src/assets/monkey.svg` and regenerates every size. Try a variant first with
+`node scripts/make-icon.mjs --preview out.png --width 600`.
+
+## Releasing (macOS)
+
+A Mac app that people download has to be signed with a Developer ID certificate and notarized by Apple. Otherwise
+macOS refuses to open it.
+
+One-time setup:
+
+1. **Developer ID Application certificate.** Only the Account Holder of the Apple developer team can create one.
+   - Easiest, in Xcode: Settings → Accounts → your team → Manage Certificates → **+** → Developer ID Application.
+   - Or at [developer.apple.com](https://developer.apple.com/account/resources/certificates/list): Certificates →
+     **+** → Developer ID Application. It asks for a certificate signing request. Make one in Keychain Access →
+     Certificate Assistant → Request a Certificate From a Certificate Authority → "Saved to disk", on the Mac you'll
+     build on (its private key stays in that Mac's keychain). Upload it, download the `.cer`, and double-click it to
+     install.
+   - Check that it's installed: `security find-identity -v -p codesigning` lists "Developer ID Application: …".
+2. **App Store Connect API key** for notarization:
+   [App Store Connect](https://appstoreconnect.apple.com/access/integrations/api) → Users and Access → Integrations →
+   Team Keys → **+**, with Developer access. Download the `.p8` file (you can only do this once), keep it outside the
+   repo, and note the Key ID and the Issuer ID.
+3. Add them to `src-tauri/.env` (git-ignored), next to the TMDB token:
+
+   ```bash
+   APPLE_SIGNING_IDENTITY="Developer ID Application: Your Name (TEAMID)"
+   APPLE_API_ISSUER=<issuer id>
+   APPLE_API_KEY=<key id>
+   APPLE_API_KEY_PATH=/Users/<you>/keys/AuthKey_<key id>.p8
+   ```
+
+4. To support Intel Macs as well as Apple Silicon: `rustup target add x86_64-apple-darwin`.
+
+Each release: bump `version` in `src-tauri/tauri.conf.json`, then
+
+```bash
+npm run release:mac
+```
+
+This builds the app (universal if the Intel target is installed), signs it, and has Apple notarize both the app and
+the `.dmg`. It then runs the same checks Gatekeeper will on someone else's Mac, and prints the path of the `.dmg` to
+upload. Notarization usually takes a few minutes. The app needs macOS 13 or later.
+
 ## Keyboard
 
 |          |                                      |

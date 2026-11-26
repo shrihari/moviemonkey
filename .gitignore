@@ -7,6 +7,10 @@ coverage/
 .DS_Store
 .env
 .env.*
+# Signing keys and certificates
+*.p8
+*.p12
+*.cer
 
 # Local test material
 demo-library/

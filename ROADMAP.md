@@ -23,8 +23,9 @@ date.
 
 These block offering a download, not day-to-day use.
 
-- [ ] **Code signing and notarization.** This needs an Apple Developer ID ($99/year); without it, macOS warns people
-      on first launch.
+- [ ] **Signed, notarized Mac download.** `npm run release:mac` is ready (README, Releasing); it needs a Developer
+      ID Application certificate and an App Store Connect API key in `src-tauri/.env`. Then host the `.dmg` (GitHub
+      Releases) and link it from the website.
 - [ ] **Auto-update** with the Tauri updater plugin and signed releases on GitHub Releases.
 - [ ] **Windows and Linux builds:** test them, use Mica instead of vibrancy on Windows, and fix anything
       macOS-specific.
@@ -68,6 +69,8 @@ shared key.
     endpoint, Cinemeta and metahub. Adds cast photos, age ratings, original release years, TMDB/TVMaze credits,
     and a 5-month refresh of metadata and artwork. Existing libraries migrate on first launch.
   - TMDB's official logo and required notice in Settings › About.
+  - New app icon: full-bleed gold with a larger monkey (`npm run icon` regenerates every size).
+  - Mac release script and bundle settings (hardened runtime, macOS 13+, DMG layout).
   - v2: a ground-up rewrite on Tauri 2 + React.
   - Live matching suite with 52 hard file names, all passing.
   - Offline-safe identification.

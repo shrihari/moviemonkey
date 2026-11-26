@@ -23,7 +23,10 @@
         "center": true,
         "titleBarStyle": "Overlay",
         "hiddenTitle": true,
-        "trafficLightPosition": { "x": 20, "y": 24 },
+        "trafficLightPosition": {
+          "x": 20,
+          "y": 24
+        },
         "transparent": true,
         "windowEffects": {
           "effects": ["sidebar"],
@@ -41,12 +44,24 @@
     "targets": "all",
     "category": "Entertainment",
     "shortDescription": "A beautiful local movie & TV library",
-    "icon": [
-      "icons/32x32.png",
-      "icons/128x128.png",
-      "icons/128x128@2x.png",
-      "icons/icon.icns",
-      "icons/icon.ico"
-    ]
+    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.icns", "icons/icon.ico"],
+    "macOS": {
+      "minimumSystemVersion": "13.0",
+      "hardenedRuntime": true,
+      "dmg": {
+        "windowSize": {
+          "width": 560,
+          "height": 360
+        },
+        "appPosition": {
+          "x": 150,
+          "y": 170
+        },
+        "applicationFolderPosition": {
+          "x": 410,
+          "y": 170
+        }
+      }
+    }
   }
 }
