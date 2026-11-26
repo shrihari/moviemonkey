@@ -2,6 +2,11 @@
 // Tauri needs (macOS .icns, Windows .ico, Linux/Store PNGs, iOS/Android).
 //
 //   npm run icon
+//   node scripts/make-icon.mjs --preview out.png [--width 600] [--face none]
+//
+// --preview renders one PNG and leaves the app's icons alone. --width is the
+// monkey's width on the 1024px canvas; --face is its face colour ("none" lets
+// the tile's gold show through).
 //
 // The tile is a full-bleed golden squircle on Apple's macOS grid (824px shape
 // on a 1024px canvas, with a soft drop shadow), so macOS shows it as-is
@@ -15,8 +20,18 @@ import { join } from 'node:path';
 const COLORS = {
   top: '#FCCF35', // golden yellow, close to the UI accent (#FFCB3D)
   bottom: '#F5B819',
-  face: '#FFEBB0', // the monkey's face, a lighter cream so it reads on the gold
+  face: 'none', // the monkey's face: "none" lets the tile's gold show through
 };
+let MONKEY_WIDTH = 660; // of the 1024px canvas (the tile itself is 824px)
+
+const args = process.argv.slice(2);
+const opt = (name) => {
+  const i = args.indexOf(name);
+  return i >= 0 ? args[i + 1] : undefined;
+};
+const preview = opt('--preview');
+if (opt('--width')) MONKEY_WIDTH = Number(opt('--width'));
+if (opt('--face')) COLORS.face = opt('--face');
 
 const CHROME = [
   '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
@@ -30,7 +45,7 @@ const defs = svg.match(/<defs>[\s\S]*?<\/defs>/)[0];
 // The face artwork without its yellow circle.
 const face = svg
   .match(/<g id="Group-3-Copy-3"[\s\S]*?<\/g>\s*<\/g>\s*<\/g>\s*<\/g>\s*<\/g>/)[0]
-  .replace(/(id="Path-4-Copy-2" fill=")#[0-9A-Fa-f]{6}"/, `$1${COLORS.face}"`);
+  .replace(/(id="Path-4-Copy-2" fill=")[^"]*"/, `$1${COLORS.face}"`);
 
 // Apple-style squircle: a superellipse (n = 5), 824px wide, centred in 1024.
 const n = 5;
@@ -69,15 +84,15 @@ ${defs}
 <g id="m" filter="url(#faceShadow)">${face}</g>
 </svg>
 <script>
-  // Centre the monkey at ~62% of the tile width.
-  const m = document.getElementById('m'), b = m.getBBox(), s = 512 / b.width;
+  // Centre the monkey at the requested width.
+  const m = document.getElementById('m'), b = m.getBBox(), s = ${MONKEY_WIDTH} / b.width;
   m.setAttribute('transform', 'translate(' + (512 - (b.x + b.width / 2) * s) + ',' + (528 - (b.y + b.height / 2) * s) + ') scale(' + s + ')');
 </script></body></html>`;
 
 const dir = mkdtempSync(join(tmpdir(), 'mm-icon-'));
 const page = join(dir, 'icon.html');
 writeFileSync(page, html);
-const source = 'src-tauri/icons/icon-source.png';
+const source = preview ?? 'src-tauri/icons/icon-source.png';
 execFileSync(
   CHROME,
   [
@@ -87,10 +102,10 @@ execFileSync(
     '--default-background-color=00000000',
     '--window-size=1024,1024',
     '--virtual-time-budget=2000',
-    `--screenshot=${join(process.cwd(), source)}`,
+    `--screenshot=${source.startsWith('/') ? source : join(process.cwd(), source)}`,
     `file://${page}`,
   ],
   { stdio: 'ignore' },
 );
 console.log(`rendered ${source}`);
-execFileSync('npx', ['tauri', 'icon', source], { stdio: 'inherit' });
+if (!preview) execFileSync('npx', ['tauri', 'icon', source], { stdio: 'inherit' });
