@@ -23,8 +23,6 @@ date.
 
 These block offering a download, not day-to-day use.
 
-- [ ] **TMDB logo in About.** TMDB's terms ask for one of their approved logos next to the credit (the required
-      notice is already there).
 - [ ] **Code signing and notarization.** This needs an Apple Developer ID ($99/year); without it, macOS warns people
       on first launch.
 - [ ] **Auto-update** with the Tauri updater plugin and signed releases on GitHub Releases.
@@ -69,6 +67,7 @@ shared key.
   - Switched to TMDB as the main metadata source (52/52 on the live suite). Dropped the IMDb suggestion
     endpoint, Cinemeta and metahub. Adds cast photos, age ratings, original release years, TMDB/TVMaze credits,
     and a 5-month refresh of metadata and artwork. Existing libraries migrate on first launch.
+  - TMDB's official logo and required notice in Settings › About.
   - v2: a ground-up rewrite on Tauri 2 + React.
   - Live matching suite with 52 hard file names, all passing.
   - Offline-safe identification.
