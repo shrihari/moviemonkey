@@ -44,12 +44,15 @@ export function Row({
           </button>
         )}
       </div>
-      <div className="relative">
+      {/* flow-root keeps the scroller's negative margin inside this box, so the edge buttons stay centred */}
+      <div className="relative flow-root">
         <div
           ref={ref}
           onScroll={update}
-          // pt-3 leaves room for the hover lift: a horizontal scroller clips vertically too
-          className="flex gap-5 overflow-x-auto no-scrollbar px-10 pb-4 pt-3 scroll-px-10 snap-x [overflow-anchor:none]"
+          // A horizontal scroller clips vertically too. pt-3 leaves room for the hover
+          // lift and pb-12 for the hover shadow (it reaches ~46px below the card);
+          // -mb-8 hands most of that back so the gap to the next row doesn't change.
+          className="flex gap-5 overflow-x-auto no-scrollbar px-10 pb-12 -mb-8 pt-3 scroll-px-10 snap-x [overflow-anchor:none]"
         >
           {children}
         </div>
