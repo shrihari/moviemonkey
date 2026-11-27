@@ -26,6 +26,11 @@
   instead of being wiped.
 - **Fixes itself when it's unsure.** Anything it can't confidently identify lands in _Needs review_ with a search
   dialog to pick the right title.
+- **Watch on your TV.** Switch on _Settings › Watch on TV_ and pair a TV with a 4-digit code. The TV gets a
+  remote-friendly version of your library and plays files straight from your computer over the home network. Files the
+  TV can play stream as they are; for the rest (DTS audio, MKV on some TVs, old XviD rips…) Movie Monkey converts only
+  what the TV can't take, on the fly, with ffmpeg. Optionally it keeps sharing from the menu bar after you close the
+  window.
 - **Works offline.** Artwork is cached on disk after first view. Files added while offline wait quietly and are
   identified automatically once the network is back. They're never wrongly flagged for review.
 
@@ -54,6 +59,14 @@ foreign films, Radarr/Sonarr naming, anime) currently passes 52/52.
   - `library.rs`: scanning, grouping, concurrent identification, file watching, view assembly
   - `db.rs`: SQLite (bundled) for folders, files, titles and user state
   - `images.rs`: on-disk artwork cache served to the UI over a custom `mm://` protocol
+- **Watch on TV** (`src-tauri/src/engine/share`): a small axum web server, off unless switched on.
+  - `mod.rs`: pairing (4-digit code → per-TV token), local-network-only access, settings
+  - `routes.rs`: the API the TV screens use, artwork, direct file streaming with seeking
+  - `media.rs`: reads a file's streams (ffprobe), decides what the TV can play, and runs ffmpeg to make HLS when it
+    can't. ffmpeg is paused when it gets 4 minutes ahead and watched chunks are deleted.
+  - `subs.rs`: subtitles beside or inside the video, as WebVTT
+- **TV screens** (`tv.html`, `src/tv`): the same React stack, sized in rem so it looks the same on any TV, with
+  spatial navigation for remotes. Served by the app itself, so updating Movie Monkey updates the TV.
 - **UI**: React 19, TypeScript, Tailwind CSS 4, Motion, cmdk, zustand. Vite 8.
 
 The engine has no Tauri dependency on purpose. A future mobile companion (watchlists, "what should I watch") can reuse
@@ -95,6 +108,14 @@ npm run format                   # prettier + rustfmt
 npm run build                    # release .app + .dmg in src-tauri/target/release/bundle
 npm run preview:web              # UI in a plain browser with real fixture data (no Rust needed)
                                  #   ?empty replays onboarding + import, ?big simulates ~2,000 titles
+```
+
+Try the TV screens without a TV: `npm run vite:build`, then run the sharing server headless against its own
+database and open http://localhost:46766 in a browser (arrow keys, Enter and Esc stand in for the remote). It prints
+the pairing code.
+
+```bash
+cd src-tauri && cargo run --example share -- --db /tmp/mm-tv.sqlite --folder ~/Movies
 ```
 
 Headless engine run (great for tuning the matcher):

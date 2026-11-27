@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Movie Monkey</title>
+    <!--
+      The LG TV app is only a launcher: it finds Movie Monkey on the home network
+      and opens the TV screens that Movie Monkey itself serves, so updating the
+      app on the computer updates what the TV shows.
+
+      Finding it: the last address that worked, then every address on the TV's
+      own network (x.x.x.1–254) on Movie Monkey's port, then manual entry.
+    -->
+    <style>
+      html {
+        font-size: calc(100vw / 120);
+      }
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: #0e0d0c;
+        color: #f3f1ee;
+        font-family: 'LG Smart UI', 'Roboto', system-ui, sans-serif;
+        overflow: hidden;
+      }
+      main {
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        padding: 0 10rem;
+        box-sizing: border-box;
+      }
+      img.logo {
+        width: 6rem;
+        height: 6rem;
+        border-radius: 1.4rem;
+      }
+      h1 {
+        margin: 2.5rem 0 0;
+        font-size: 3rem;
+        font-weight: 700;
+      }
+      p {
+        margin: 1.2rem 0 0;
+        max-width: 52rem;
+        font-size: 1.5rem;
+        line-height: 1.5;
+        color: #b4b0a9;
+      }
+      .spinner {
+        margin-top: 2.5rem;
+        width: 3rem;
+        height: 3rem;
+        border-radius: 50%;
+        border: 0.3rem solid rgba(255, 255, 255, 0.2);
+        border-top-color: #fff;
+        animation: spin 0.9s linear infinite;
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+      .row {
+        margin-top: 2.5rem;
+        display: flex;
+        gap: 1rem;
+        justify-content: center;
+        flex-wrap: wrap;
+      }
+      button,
+      input {
+        height: 3.5rem;
+        padding: 0 2.2rem;
+        border-radius: 999px;
+        border: 0;
+        font: inherit;
+        font-size: 1.35rem;
+        font-weight: 600;
+        background: rgba(255, 255, 255, 0.12);
+        color: #f3f1ee;
+        outline: none;
+      }
+      input {
+        width: 22rem;
+        border-radius: 1rem;
+        text-align: center;
+        font-family: monospace;
+      }
+      button:focus,
+      input:focus {
+        background: #fff;
+        color: #000;
+      }
+      [hidden] {
+        display: none !important;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <img class="logo" src="largeIcon.png" alt="" />
+      <section id="finding">
+        <h1>Looking for Movie Monkey…</h1>
+        <p id="finding-detail">Checking your home network.</p>
+        <div class="spinner" style="margin-left: auto; margin-right: auto"></div>
+      </section>
+      <section id="choose" hidden>
+        <h1>Which computer?</h1>
+        <div class="row" id="servers"></div>
+      </section>
+      <section id="missing" hidden>
+        <h1>Can't find Movie Monkey</h1>
+        <p>
+          On your computer, open Movie Monkey and switch on <b>Settings › Watch on TV</b>. Make sure the TV and the
+          computer are on the same Wi-Fi. You can also type the address shown there.
+        </p>
+        <div class="row">
+          <input id="address" placeholder="192.168.1.23" />
+          <button id="connect">Connect</button>
+          <button id="retry">Look again</button>
+        </div>
+      </section>
+    </main>
+    <script>
+      var PORT = 46766;
+      var $ = function (id) {
+        return document.getElementById(id);
+      };
+      function show(id) {
+        ['finding', 'choose', 'missing'].forEach(function (s) {
+          $(s).hidden = s !== id;
+        });
+      }
+
+      // Ask an address whether Movie Monkey is there.
+      function probe(base, ms) {
+        return new Promise(function (resolve) {
+          var done = false;
+          var xhr = new XMLHttpRequest();
+          var timer = setTimeout(function () {
+            if (!done) {
+              done = true;
+              xhr.abort();
+              resolve(null);
+            }
+          }, ms);
+          xhr.onload = function () {
+            if (done) return;
+            done = true;
+            clearTimeout(timer);
+            try {
+              var info = JSON.parse(xhr.responseText);
+              resolve(info && info.app === 'Movie Monkey' ? { base: base, name: info.name } : null);
+            } catch (e) {
+              resolve(null);
+            }
+          };
+          xhr.onerror = function () {
+            if (done) return;
+            done = true;
+            clearTimeout(timer);
+            resolve(null);
+          };
+          xhr.open('GET', base + '/api/info');
+          xhr.send();
+        });
+      }
+
+      function open(base) {
+        localStorage.setItem('mm.server', base);
+        // The TV screens come from Movie Monkey on the computer.
+        location.replace(base + '/tv.html?server=' + encodeURIComponent(base));
+      }
+
+      // The TV's own address, from webOS's connection manager.
+      function tvAddress() {
+        return new Promise(function (resolve) {
+          if (typeof PalmServiceBridge === 'undefined') return resolve(null);
+          var bridge = new PalmServiceBridge();
+          bridge.onservicecallback = function (msg) {
+            try {
+              var r = JSON.parse(msg);
+              var net = (r.wired && r.wired.state === 'connected' && r.wired) || (r.wifi && r.wifi.ipAddress && r.wifi);
+              resolve(net ? net.ipAddress : null);
+            } catch (e) {
+              resolve(null);
+            }
+          };
+          bridge.call('luna://com.webos.service.connectionmanager/getStatus', '{}');
+          setTimeout(function () {
+            resolve(null);
+          }, 3000);
+        });
+      }
+
+      // Try every address on the TV's network, 40 at a time.
+      function scan(ip) {
+        var prefix = ip.split('.').slice(0, 3).join('.');
+        var found = [];
+        var next = 1;
+        return new Promise(function (resolve) {
+          var running = 0;
+          function pump() {
+            while (running < 40 && next <= 254) {
+              var host = prefix + '.' + next++;
+              if (host === ip) continue;
+              running++;
+              probe('http://' + host + ':' + PORT, 1500).then(function (hit) {
+                running--;
+                if (hit) found.push(hit);
+                if (next > 254 && running === 0) resolve(found);
+                else pump();
+              });
+            }
+          }
+          pump();
+        });
+      }
+
+      function choose(servers) {
+        var box = $('servers');
+        box.innerHTML = '';
+        servers.forEach(function (s, i) {
+          var b = document.createElement('button');
+          b.textContent = s.name;
+          b.onclick = function () {
+            open(s.base);
+          };
+          box.appendChild(b);
+          if (i === 0) setTimeout(function () { b.focus(); }, 0);
+        });
+        show('choose');
+      }
+
+      function find() {
+        show('finding');
+        var last = localStorage.getItem('mm.server');
+        (last ? probe(last, 2500) : Promise.resolve(null))
+          .then(function (hit) {
+            if (hit) return open(hit.base);
+            return tvAddress().then(function (ip) {
+              if (!ip) return [];
+              $('finding-detail').textContent = 'Checking ' + ip.split('.').slice(0, 3).join('.') + '.x';
+              return scan(ip);
+            }).then(function (servers) {
+              if (!servers) return;
+              if (servers.length === 1) open(servers[0].base);
+              else if (servers.length > 1) choose(servers);
+              else {
+                show('missing');
+                $('retry').focus();
+              }
+            });
+          });
+      }
+
+      $('retry').onclick = find;
+      $('connect').onclick = function () {
+        var v = $('address').value.trim();
+        if (!v) return $('address').focus();
+        var base = /^https?:/.test(v) ? v : 'http://' + v + (v.indexOf(':') < 0 ? ':' + PORT : '');
+        probe(base, 4000).then(function (hit) {
+          if (hit) open(hit.base);
+          else $('address').value = '';
+        });
+      };
+
+      // Left and right move between the buttons; Back leaves the app.
+      document.addEventListener('keydown', function (e) {
+        var items = Array.prototype.slice.call(document.querySelectorAll('section:not([hidden]) button, section:not([hidden]) input'));
+        var i = items.indexOf(document.activeElement);
+        if (e.keyCode === 37 || e.keyCode === 39) {
+          if (document.activeElement && document.activeElement.tagName === 'INPUT' && e.keyCode === 37) return;
+          var n = items[(i + (e.keyCode === 39 ? 1 : -1) + items.length) % items.length];
+          if (n) n.focus();
+          e.preventDefault();
+        } else if (e.keyCode === 461 && window.PalmSystem) {
+          window.PalmSystem.platformBack();
+        }
+      });
+
+      find();
+    </script>
+  </body>
+</html>

@@ -82,6 +82,8 @@ export function TvApp() {
     const st = stackRef.current;
     if (st.length <= 1) {
       if (tab !== 'home') setTab('home');
+      // Back on the home screen leaves the app on an LG TV.
+      else (window as unknown as { PalmSystem?: { platformBack(): void } }).PalmSystem?.platformBack();
       return;
     }
     const leaving = st[st.length - 1];
