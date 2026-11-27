@@ -2,7 +2,7 @@
 // without Tauri) it falls back to an in-memory mock backed by real fixture data,
 // which makes UI work fast and lets the app be previewed anywhere.
 
-import type { Candidate, LibrarySnapshot, Progress, StatePatch, TitleDetail, TitleKind } from './types';
+import type { Candidate, LibrarySnapshot, Progress, ShareStatus, StatePatch, TitleDetail, TitleKind } from './types';
 
 export const isTauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
 
@@ -27,6 +27,14 @@ export interface Backend {
   onProgress(cb: (p: Progress) => void): Promise<() => void>;
   onChanged(cb: () => void): Promise<() => void>;
   onDragDrop(cb: (e: { type: 'enter' | 'over' | 'leave' | 'drop'; paths: string[] }) => void): Promise<() => void>;
+  // Watch on TV
+  shareStatus(): Promise<ShareStatus>;
+  shareSetEnabled(on: boolean): Promise<ShareStatus>;
+  sharePair(): Promise<ShareStatus>;
+  shareCancelPairing(): Promise<ShareStatus>;
+  shareRemoveDevice(id: string): Promise<ShareStatus>;
+  shareSetKeepRunning(on: boolean): Promise<ShareStatus>;
+  onShare(cb: () => void): Promise<() => void>;
 }
 
 async function tauriBackend(): Promise<Backend> {
@@ -60,6 +68,13 @@ async function tauriBackend(): Promise<Backend> {
     openUrl: (url) => opener.openUrl(url),
     onProgress: (cb) => listen<Progress>('mm://progress', (e) => cb(e.payload)),
     onChanged: (cb) => listen('mm://changed', () => cb()),
+    shareStatus: () => invoke('share_status'),
+    shareSetEnabled: (on) => invoke('share_set_enabled', { on }),
+    sharePair: () => invoke('share_pair'),
+    shareCancelPairing: () => invoke('share_cancel_pairing'),
+    shareRemoveDevice: (id) => invoke('share_remove_device', { id }),
+    shareSetKeepRunning: (on) => invoke('share_set_keep_running', { on }),
+    onShare: (cb) => listen('mm://share', () => cb()),
     onDragDrop: (cb) =>
       getCurrentWebview().onDragDropEvent((e) => {
         const p = e.payload;

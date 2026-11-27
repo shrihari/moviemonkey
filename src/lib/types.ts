@@ -164,3 +164,26 @@ export interface StatePatch {
   watchlist?: boolean;
   rating?: number;
 }
+
+export interface ShareDevice {
+  id: string;
+  name: string;
+  pairedAt: number;
+  lastSeen: number | null;
+}
+
+/** Watch on TV: mirrors `ShareStatus` in src-tauri/src/engine/share/mod.rs. */
+export interface ShareStatus {
+  enabled: boolean;
+  running: boolean;
+  port: number | null;
+  /** e.g. "http://192.168.1.23:46766" */
+  address: string | null;
+  name: string;
+  keepRunning: boolean;
+  pairingCode: string | null;
+  pairingExpiresIn: number | null;
+  devices: ShareDevice[];
+  canConvert: boolean;
+  error: string | null;
+}

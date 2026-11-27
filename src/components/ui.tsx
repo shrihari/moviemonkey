@@ -245,3 +245,37 @@ export function SelectButton({ label, open }: { label: ReactNode; open?: boolean
     </span>
   );
 }
+
+/** An on/off switch, macOS style. */
+export function Switch({
+  checked,
+  onChange,
+  label,
+  disabled,
+}: {
+  checked: boolean;
+  onChange: (on: boolean) => void;
+  label: string;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      role="switch"
+      aria-checked={checked}
+      aria-label={label}
+      disabled={disabled}
+      onClick={() => onChange(!checked)}
+      className={clsx(
+        'relative h-[22px] w-[38px] shrink-0 rounded-full transition-colors duration-200 disabled:opacity-40',
+        checked ? 'bg-accent' : 'bg-active shadow-[inset_0_0_0_0.5px_var(--line-strong)]',
+      )}
+    >
+      <span
+        className={clsx(
+          'absolute top-[2px] left-[2px] size-[18px] rounded-full bg-white shadow-[0_1px_3px_rgb(0_0_0/0.3)] transition-transform duration-200 ease-[var(--ease-out-expo)]',
+          checked && 'translate-x-[16px]',
+        )}
+      />
+    </button>
+  );
+}
