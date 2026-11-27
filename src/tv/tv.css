@@ -1,4 +1,5 @@
-@import 'tailwindcss';
+/* Only the TV screens' own classes (the desktop app's would only add weight). */
+@import 'tailwindcss' source('.');
 
 /* The TV screens. Everything is sized in rem, and 1rem is 1/120 of the screen
    width (16px on a 1920-wide TV), so the layout looks the same on every TV. */
@@ -76,4 +77,21 @@ body {
 }
 .spin {
   animation: tv-spin 0.9s linear infinite;
+}
+
+/* TV browsers before Chrome 88 (LG's 2022 TVs and older) have no aspect-ratio:
+   hold the card's shape with padding instead. Everything inside these cards is
+   positioned absolutely, so the padding alone sets the height. */
+@supports not (aspect-ratio: 1 / 1) {
+  .aspect-\[2\/3\]::before,
+  .aspect-video::before {
+    content: '';
+    display: block;
+  }
+  .aspect-\[2\/3\]::before {
+    padding-top: 150%;
+  }
+  .aspect-video::before {
+    padding-top: 56.25%;
+  }
 }

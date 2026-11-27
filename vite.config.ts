@@ -1,12 +1,14 @@
 import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
+import { tvLegacyCss } from './scripts/tv-legacy-css';
 
 // https://v2.tauri.app/start/frontend/vite/
 const host = process.env.TAURI_DEV_HOST;
 
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
+  // tvLegacyCss: the TV stylesheet, rewritten for the older browsers in TVs.
+  plugins: [react(), tailwindcss(), tvLegacyCss()],
   clearScreen: false,
   server: {
     port: 1420,
@@ -27,6 +29,6 @@ export default defineConfig({
   },
   test: {
     environment: 'node',
-    include: ['src/**/*.test.ts'],
+    include: ['src/**/*.test.ts', 'scripts/**/*.test.ts'],
   },
 });

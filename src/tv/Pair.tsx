@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api, ApiError, deviceName, token } from './api';
-import { focusDefault, onKeys } from './nav';
+import { digitOf, focusDefault, onKeys } from './nav';
 import { Monkey, Spinner } from './ui';
 
 /** First visit from a TV: enter the code shown in Movie Monkey's Settings. */
@@ -37,7 +37,7 @@ export function PairScreen({ server, onPaired }: { server: string; onPaired: () 
     () =>
       onKeys((key, e) => {
         if (key === 'digit') {
-          press(e.key);
+          press(digitOf(e) ?? '');
           return true;
         }
         if (key === 'back' && code) {

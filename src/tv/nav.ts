@@ -168,7 +168,15 @@ export function keyOf(e: KeyboardEvent): Key | null {
     case 412:
       return 'rw';
   }
-  if (/^[0-9]$/.test(e.key)) return 'digit';
+  if (digitOf(e) !== null) return 'digit';
+  return null;
+}
+
+/** The number on a number key. Some TV browsers don't fill in `key`, so the key code counts too. */
+export function digitOf(e: KeyboardEvent): string | null {
+  if (/^[0-9]$/.test(e.key)) return e.key;
+  if (e.keyCode >= 48 && e.keyCode <= 57) return String(e.keyCode - 48);
+  if (e.keyCode >= 96 && e.keyCode <= 105) return String(e.keyCode - 96); // number pad
   return null;
 }
 
