@@ -177,11 +177,13 @@
         location.replace(base + '/tv.html?server=' + encodeURIComponent(base));
       }
 
-      // The TV's own address, from webOS's connection manager.
+      // The TV's own address, from webOS's connection manager (needs the
+      // "network.query" permission in appinfo.json).
+      var bridge = null; // kept here so it isn't garbage-collected before it answers
       function tvAddress() {
         return new Promise(function (resolve) {
           if (typeof PalmServiceBridge === 'undefined') return resolve(null);
-          var bridge = new PalmServiceBridge();
+          bridge = new PalmServiceBridge();
           bridge.onservicecallback = function (msg) {
             try {
               var r = JSON.parse(msg);
@@ -191,7 +193,7 @@
               resolve(null);
             }
           };
-          bridge.call('luna://com.webos.service.connectionmanager/getStatus', '{}');
+          bridge.call('luna://com.palm.connectionmanager/getStatus', '{}');
           setTimeout(function () {
             resolve(null);
           }, 3000);
