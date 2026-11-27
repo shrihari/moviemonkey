@@ -869,6 +869,44 @@ fn build_summary(
     }
 }
 
+/// Libraries that other apps manage, like `~/Movies/TV` (the Apple TV app) or a
+/// Photos or Final Cut library. Their files aren't ours to list, and macOS asks
+/// permission ("access Apple Music … and your media library") the moment we
+/// read inside the Apple TV or Music library.
+const APP_LIBRARY_EXTS: &[&str] = &[
+    "tvlibrary",
+    "musiclibrary",
+    "photoslibrary",
+    "photolibrary",
+    "imovielibrary",
+    "theater",
+    "fcpbundle",
+    "aplibrary",
+    "app",
+];
+
+fn is_app_library(dir: &Path) -> bool {
+    let ext = dir
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("")
+        .to_ascii_lowercase();
+    if APP_LIBRARY_EXTS.contains(&ext.as_str()) {
+        return true;
+    }
+    // The Apple TV and Music apps keep their media in `Media.localized`, next
+    // to the `.tvlibrary` / `.musiclibrary` package.
+    if dir.file_name().is_some_and(|n| n == "Media.localized") {
+        if let Some(Ok(siblings)) = dir.parent().map(std::fs::read_dir) {
+            return siblings.flatten().any(|s| {
+                let n = s.file_name().to_string_lossy().to_ascii_lowercase();
+                n.ends_with(".tvlibrary") || n.ends_with(".musiclibrary")
+            });
+        }
+    }
+    false
+}
+
 /// Recursively list video files: (path, size, mtime-ms).
 fn walk(root: &Path) -> Result<Vec<(String, u64, i64)>> {
     let mut out = vec![];
@@ -880,7 +918,9 @@ fn walk(root: &Path) -> Result<Vec<(String, u64, i64)>> {
             if e.depth() == 0 {
                 return true;
             }
-            !(name.starts_with('.') || SKIP_DIRS.contains(&name.as_ref()))
+            !(name.starts_with('.')
+                || SKIP_DIRS.contains(&name.as_ref())
+                || (e.file_type().is_dir() && is_app_library(e.path())))
         });
     for entry in it.flatten() {
         if !entry.file_type().is_file() || !is_video_file(entry.path()) {
@@ -899,4 +939,42 @@ fn walk(root: &Path) -> Result<Vec<(String, u64, i64)>> {
         out.push((entry.path().to_string_lossy().to_string(), md.len(), mtime));
     }
     Ok(out)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn walk_skips_other_apps_libraries() {
+        let root = std::env::temp_dir().join(format!("mm-walk-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        let video = |rel: &str| {
+            let p = root.join(rel);
+            std::fs::create_dir_all(p.parent().unwrap()).unwrap();
+            // Sparse: reports 20 MB without using the disk.
+            std::fs::File::create(&p).unwrap().set_len(20 * 1024 * 1024).unwrap();
+        };
+        video("Heat (1995)/Heat.1995.1080p.mkv");
+        video("TV/TV Library.tvlibrary/Library.mkv");
+        video("TV/Media.localized/Movies/Bought.m4v");
+        video("Media.localized/Home Videos/Beach.mp4");
+        video("Edits.fcpbundle/Render Files/Clip.mov");
+
+        let mut found: Vec<String> = walk(&root)
+            .unwrap()
+            .into_iter()
+            .map(|(p, _, _)| p.strip_prefix(&*root.to_string_lossy()).unwrap().to_string())
+            .collect();
+        found.sort();
+        let _ = std::fs::remove_dir_all(&root);
+        // A Media.localized folder that isn't the Apple TV app's is still scanned.
+        assert_eq!(
+            found,
+            [
+                "/Heat (1995)/Heat.1995.1080p.mkv",
+                "/Media.localized/Home Videos/Beach.mp4"
+            ]
+        );
+    }
 }
