@@ -56,7 +56,7 @@ export function PairScreen({ server, onPaired }: { server: string; onPaired: () 
   return (
     <div className="h-full flex items-center justify-center gap-32 px-24 fade-in">
       <div className="max-w-[40rem]">
-        <Monkey className="size-24 rounded-[1.4rem]" />
+        <Monkey className="size-24" />
         <h1 className="mt-10 font-display text-[3.4rem] font-bold leading-[1.05] tracking-[-0.02em]">
           Connect to {server || 'Movie Monkey'}
         </h1>

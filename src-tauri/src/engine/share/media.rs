@@ -431,10 +431,9 @@ pub fn decide(info: &MediaInfo, caps: &Caps, audio_pref: Option<u32>, have_ffmpe
     let non_default_audio = matches!((audio, default_audio), (Some(a), Some(d)) if a.index != d.index);
     let video_action = if video_ok { Action::Copy } else { Action::Convert };
     let audio_action = if audio_ok { Action::Copy } else { Action::Convert };
+    // Only conversions are worth a mention: repackaging (the same picture and
+    // sound in a container the TV opens) changes nothing anyone sees or hears.
     let mut notes = vec![];
-    if !container_ok && video_ok {
-        notes.push(format!("Repackaging {}", info.container.to_uppercase()));
-    }
     if let (Action::Convert, Some(v)) = (video_action, info.video.as_ref()) {
         notes.push(format!("Converting {} video", codec_label(&v.codec)));
     }
@@ -981,6 +980,8 @@ mod tests {
         };
         let d = decide(&info("mkv", "h264", 8, "aac"), &chrome, None, true);
         assert_eq!((d.mode, d.video, d.audio), ("hls", Action::Copy, Action::Copy));
+        // Repackaging alone isn't mentioned in the player.
+        assert_eq!(d.note, None);
         let d = decide(&info("mkv", "hevc", 10, "ac3"), &chrome, None, true);
         assert_eq!((d.video, d.audio), (Action::Convert, Action::Convert));
         // Nothing to convert with.

@@ -45,7 +45,7 @@ export function HomeScreen({
   return (
     <div data-scroll-y className="relative h-full overflow-y-auto no-scrollbar">
       <div data-nav-row="top" className="absolute top-0 inset-x-0 z-20 flex items-center gap-3 px-24 pt-10">
-        <Monkey className="size-11 rounded-[0.7rem] mr-5" />
+        <Monkey className="size-11 mr-5" />
         <div data-nav-group className="flex gap-2">
           {TABS.map((t) => (
             <button

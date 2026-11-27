@@ -334,8 +334,8 @@ async fn play(
         .collect();
     let unsupported_reason = (d.mode == "unsupported").then(|| {
         format!(
-            "Your TV can't play this file as it is ({}). Movie Monkey can convert it when ffmpeg is installed on your computer.",
-            d.note.clone().unwrap_or_default()
+            "Your TV can't play this file as it is{}. Movie Monkey can convert it when ffmpeg is installed on your computer.",
+            d.note.as_ref().map(|n| format!(" ({n})")).unwrap_or_default()
         )
     });
     // A TV that starts playing counts as a play, like opening it on the computer.

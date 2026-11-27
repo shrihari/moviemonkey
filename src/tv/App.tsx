@@ -153,7 +153,7 @@ export function TvApp() {
   if (phase === 'connecting') {
     return (
       <div className="h-full flex flex-col items-center justify-center gap-10">
-        <Monkey className="size-24 rounded-[1.4rem]" />
+        <Monkey className="size-24" />
         <Spinner />
       </div>
     );
@@ -161,7 +161,7 @@ export function TvApp() {
   if (phase === 'unreachable') {
     return (
       <div className="h-full flex flex-col items-center justify-center text-center px-40">
-        <Monkey className="size-24 rounded-[1.4rem]" />
+        <Monkey className="size-24" />
         <h1 className="mt-10 font-display text-[3rem] font-bold">Can't reach your computer</h1>
         <p className="mt-5 max-w-[50rem] text-[1.5rem] leading-relaxed text-ink-2">
           Make sure Movie Monkey is open on your computer, <b className="text-ink">Watch on TV</b> is switched on in
