@@ -97,6 +97,9 @@ pub struct Share {
     pairing: Mutex<Option<Pairing>>,
     error: Mutex<Option<String>>,
     on_change: Mutex<Option<OnChange>>,
+    /// File id → file, rebuilt when an id isn't found or it's 30 s old. Players
+    /// make a request for every seek, so this keeps them off the database.
+    pub(crate) files: Mutex<(Instant, std::collections::HashMap<String, super::db::FileRow>)>,
 }
 
 impl Share {
@@ -111,6 +114,7 @@ impl Share {
             pairing: Mutex::new(None),
             error: Mutex::new(None),
             on_change: Mutex::new(None),
+            files: Mutex::new((Instant::now(), Default::default())),
         })
     }
 

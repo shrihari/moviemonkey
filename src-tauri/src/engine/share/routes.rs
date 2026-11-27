@@ -208,12 +208,20 @@ async fn image(State(share): S, Query(q): Query<HashMap<String, String>>) -> Res
 
 impl Share {
     fn find_file(&self, id: &str) -> Option<FileRow> {
-        self.lib
-            .playable_files()
-            .ok()?
-            .into_iter()
-            .find(|f| file_id(&f.path) == id)
+        let mut cache = self.files.lock().unwrap();
+        let fresh = cache.0.elapsed() < Duration::from_secs(30);
+        if !fresh || !cache.1.contains_key(id) {
+            let rows = self.lib.playable_files().ok()?;
+            *cache = (
+                std::time::Instant::now(),
+                rows.into_iter().map(|f| (file_id(&f.path), f)).collect(),
+            );
+        }
+        cache
+            .1
+            .get(id)
             .filter(|f| std::path::Path::new(&f.path).is_file())
+            .cloned()
     }
 
     async fn file_and_info(self: &Arc<Self>, id: &str) -> Option<(FileRow, Arc<MediaInfo>)> {

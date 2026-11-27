@@ -107,6 +107,7 @@ export function PlayerScreen({
   /** Where a jump past the prepared part is headed, while it waits to restart. */
   const pendingSeek = useRef<number | null>(null);
   const lastSaved = useRef(0);
+  const lastPos = useRef(0);
 
   const duration = planState?.duration ?? (video.current?.duration || 0);
   const abs = () => pendingSeek.current ?? (plan.current?.offset ?? 0) + (video.current?.currentTime ?? 0);
@@ -114,7 +115,9 @@ export function PlayerScreen({
   const save = useCallback(() => {
     const p = plan.current;
     if (!p || p.mode === 'unsupported') return;
-    const pos = abs();
+    // The last position the video reported: when leaving the player the
+    // video element is already gone.
+    const pos = lastPos.current;
     if (pos < 1) return;
     lastSaved.current = Date.now();
     void api.progress(req.file.id, pos, p.duration).catch(() => {});
@@ -365,6 +368,7 @@ export function PlayerScreen({
   const onTime = () => {
     if (pendingSeek.current !== null) return;
     const t = abs();
+    lastPos.current = t;
     setNow(t);
     if (cues.length) {
       const rel = video.current?.currentTime ?? 0;

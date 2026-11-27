@@ -8,9 +8,7 @@ use std::sync::Arc;
 use tauri::http::Response;
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::TrayIconBuilder;
-#[cfg(target_os = "macos")]
-use tauri::RunEvent;
-use tauri::{AppHandle, Emitter, Manager, State, WindowEvent};
+use tauri::{AppHandle, Emitter, Manager, RunEvent, State, WindowEvent};
 use tauri_plugin_opener::OpenerExt;
 
 struct AppState {
@@ -383,11 +381,16 @@ pub fn run() {
         .build(tauri::generate_context!())
         .expect("error while building Movie Monkey");
 
-    app.run(|_app, _event| {
+    app.run(|app, event| match event {
         // Clicking the Dock icon while the window is hidden brings it back.
         #[cfg(target_os = "macos")]
-        if let RunEvent::Reopen { .. } = _event {
-            show_main(_app);
+        RunEvent::Reopen { .. } => show_main(app),
+        // Stop any conversions for TVs, so no ffmpeg outlives the app.
+        RunEvent::Exit => {
+            if let Some(state) = app.try_state::<AppState>() {
+                state.share.stop();
+            }
         }
+        _ => {}
     });
 }

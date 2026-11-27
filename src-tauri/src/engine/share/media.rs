@@ -470,6 +470,8 @@ pub struct Session {
     kill: Mutex<Option<tokio::sync::oneshot::Sender<()>>>,
     pid: Option<u32>,
     paused: AtomicBool,
+    /// Set by `stop`, so ffmpeg exiting from the kill isn't reported as a failure.
+    stopping: AtomicBool,
     last_request: AtomicI64,
     /// Highest chunk number the TV has asked for.
     wanted: AtomicU64,
@@ -547,6 +549,16 @@ impl Session {
         if self.paused.swap(false, Ordering::Relaxed) {
             self.signal(false);
         }
+        self.stopping.store(true, Ordering::Relaxed);
+        // Kill it right away too: when the app is quitting, the task that owns
+        // ffmpeg may never get to run.
+        #[cfg(unix)]
+        if let (Some(pid), false) = (self.pid, self.done.load(Ordering::Relaxed)) {
+            // SAFETY: plain kill(2) on our own child process.
+            unsafe {
+                libc::kill(pid as i32, libc::SIGKILL);
+            }
+        }
         match self.kill.lock().unwrap().take() {
             Some(tx) if !self.done.load(Ordering::Relaxed) => {
                 let _ = tx.send(());
@@ -579,8 +591,16 @@ pub struct Media {
 
 impl Media {
     pub fn new(work: PathBuf) -> Self {
-        // Chunks from a previous run are of no use now.
-        let _ = std::fs::remove_dir_all(work.join("hls"));
+        // Chunks from a previous run are of no use now, and if Movie Monkey
+        // didn't quit cleanly, its ffmpegs may still be running (or paused).
+        let hls = work.join("hls");
+        #[cfg(unix)]
+        let _ = std::process::Command::new("pkill")
+            .args(["-9", "-f", &format!("{}/", hls.display())])
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status();
+        let _ = std::fs::remove_dir_all(&hls);
         Self {
             work,
             tools: OnceLock::new(),
@@ -675,6 +695,7 @@ impl Media {
             kill: Mutex::new(Some(kill_tx)),
             pid,
             paused: AtomicBool::new(false),
+            stopping: AtomicBool::new(false),
             last_request: AtomicI64::new(now_ms()),
             wanted: AtomicU64::new(0),
             done: AtomicBool::new(false),
@@ -729,6 +750,7 @@ impl Media {
                     let log = log.await.unwrap_or_default();
                     match status {
                         Ok(st) if st.success() => {}
+                        _ if s.stopping.load(Ordering::Relaxed) => {}
                         Ok(st) => {
                             let tail: Vec<&str> = log.lines().rev().take(6).collect();
                             let msg = tail.into_iter().rev().collect::<Vec<_>>().join("\n");
@@ -737,7 +759,7 @@ impl Media {
                         }
                         Err(e) => *s.failed.lock().unwrap() = Some(e.to_string()),
                     }
-                    false
+                    s.stopping.load(Ordering::Relaxed)
                 }
                 _ = kill => {
                     let _ = child.start_kill();
