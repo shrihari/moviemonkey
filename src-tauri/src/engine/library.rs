@@ -772,6 +772,60 @@ impl Library {
     pub fn now(&self) -> i64 {
         now()
     }
+
+    /// Files matched to a title, which a TV may play.
+    pub fn playable_files(&self) -> Result<Vec<FileRow>> {
+        Ok(self
+            .db()
+            .files()?
+            .into_iter()
+            .filter(|f| f.status == "matched" || f.status == "manual")
+            .collect())
+    }
+
+    pub fn position(&self, path: &str) -> Option<(f64, Option<f64>)> {
+        self.db().position(path).ok().flatten()
+    }
+
+    /// Remember where playback of a file stopped. Near the end it counts as
+    /// watched instead, and the position is cleared.
+    pub fn save_position(&self, path: &str, position: f64, duration: Option<f64>) -> Result<bool> {
+        let finished = duration.is_some_and(|d| d > 0.0 && position / d >= 0.92);
+        let file = self.db().files()?.into_iter().find(|f| f.path == path);
+        if finished {
+            self.db().clear_position(path)?;
+            if let Some(f) = file.as_ref() {
+                if let Some(tid) = &f.title_id {
+                    let watched = StatePatch {
+                        watched: Some(true),
+                        ..Default::default()
+                    };
+                    match (f.season, f.episode) {
+                        (Some(s), Some(e)) => {
+                            for ep in e..=f.episode_end.unwrap_or(e) {
+                                self.db().patch_state(&episode_key(tid, s, ep), &watched)?;
+                            }
+                        }
+                        _ => {
+                            self.db().patch_state(tid, &watched)?;
+                        }
+                    }
+                }
+            }
+            self.changed(true);
+        } else if position > 5.0 {
+            self.db().set_position(path, position, duration)?;
+        }
+        Ok(finished)
+    }
+
+    pub fn setting(&self, key: &str) -> Option<String> {
+        self.db().setting(key).ok().flatten()
+    }
+
+    pub fn set_setting(&self, key: &str, value: &str) -> Result<()> {
+        self.db().set_setting(key, value)
+    }
 }
 
 fn media_file(f: &FileRow, online: &HashMap<i64, bool>) -> MediaFile {
