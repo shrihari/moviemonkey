@@ -78,13 +78,19 @@ export function TvApp() {
     focusMemory.set(stackRef.current.length - 1, (document.activeElement as HTMLElement | null)?.dataset.navId);
     setStack((st) => [...st, s]);
   };
-  const back = useCallback(() => {
+  /** Returns false when there's nothing to go back to, so a TV browser can leave the page. */
+  const back = useCallback((): boolean => {
     const st = stackRef.current;
     if (st.length <= 1) {
-      if (tab !== 'home') setTab('home');
-      // Back on the home screen leaves the app on an LG TV.
-      else (window as unknown as { PalmSystem?: { platformBack(): void } }).PalmSystem?.platformBack();
-      return;
+      if (tab !== 'home') {
+        setTab('home');
+        return true;
+      }
+      // Back on the home screen closes the LG app.
+      const palm = (window as unknown as { PalmSystem?: { platformBack(): void } }).PalmSystem;
+      if (!palm) return false;
+      palm.platformBack();
+      return true;
     }
     const leaving = st[st.length - 1];
     setStack(st.slice(0, -1));
@@ -94,6 +100,7 @@ export function TvApp() {
     }
     const depth = st.length - 2;
     requestAnimationFrame(() => focusDefault(undefined, focusMemory.get(depth)));
+    return true;
   }, [tab, loadLibrary]);
 
   const backRef = useRef(back);

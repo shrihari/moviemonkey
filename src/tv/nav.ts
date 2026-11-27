@@ -192,13 +192,47 @@ export function onKeys(h: Handler): () => void {
   };
 }
 
-export function installKeys(back: () => void): () => void {
+// A TV's web browser turns the remote's Back button into the browser's own
+// "go back", which would leave Movie Monkey. So the page keeps one spare
+// history entry on top: Back lands on it, and we treat that as our own Back
+// and put the spare back. Some browsers also send the key itself first; then
+// the history step that follows is the same press and is only re-armed.
+const SPARE = 'movieMonkeyBack';
+
+function armHistory() {
+  const state = (history.state ?? {}) as Record<string, unknown>;
+  if (state[SPARE]) return;
+  try {
+    history.pushState({ ...state, [SPARE]: true }, '');
+  } catch {
+    /* some embedded pages can't touch history */
+  }
+}
+
+/** `back` returns false when there's nowhere left to go back to (the home screen). */
+export function installKeys(back: () => boolean): () => void {
+  const goBack = (e: KeyboardEvent): boolean => {
+    for (let i = handlers.length - 1; i >= 0; i--) if (handlers[i]('back', e)) return true;
+    return back();
+  };
+  /** The last Back key press, to recognise the browser's history step that follows it. */
+  let lastKey = { at: -Infinity, handled: false };
+
   const onKey = (e: KeyboardEvent) => {
     const key = keyOf(e);
+    // Browsers only keep a history entry made after the person has used the page.
+    if (key !== 'back') armHistory();
     if (!key) return;
     const target = e.target as HTMLElement;
     const typing = target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement;
     if (typing && (key === 'left' || key === 'right' || key === 'digit' || (key === 'back' && e.key === 'Backspace'))) {
+      return;
+    }
+    if (key === 'back') {
+      const handled = goBack(e);
+      lastKey = { at: performance.now(), handled };
+      // Nothing left to go back to: let the browser leave the page.
+      if (handled) e.preventDefault();
       return;
     }
     for (let i = handlers.length - 1; i >= 0; i--) {
@@ -210,20 +244,35 @@ export function installKeys(back: () => void): () => void {
     if (key === 'left' || key === 'right' || key === 'up' || key === 'down') {
       e.preventDefault();
       move(key);
-    } else if (key === 'back') {
-      e.preventDefault();
-      back();
     }
   };
+
+  const onHistoryBack = () => {
+    let handled: boolean;
+    if (performance.now() - lastKey.at < 1000) {
+      handled = lastKey.handled; // the same press, already handled as a key
+      lastKey = { at: -Infinity, handled: false };
+    } else {
+      handled = goBack(new KeyboardEvent('keydown', { key: 'GoBack' }));
+    }
+    if (handled) armHistory();
+    // On the home screen: one press leaves, as Back does in a TV app.
+    else history.back();
+  };
+
   // Pointing with a mouse (or an LG Magic Remote) also moves focus.
   const onHover = (e: MouseEvent) => {
     const el = (e.target as HTMLElement).closest<HTMLElement>(SELECTOR);
     if (el && document.activeElement !== el) el.focus({ preventScroll: true });
   };
   window.addEventListener('keydown', onKey);
+  window.addEventListener('mousedown', armHistory);
+  window.addEventListener('popstate', onHistoryBack);
   window.addEventListener('mouseover', onHover);
   return () => {
     window.removeEventListener('keydown', onKey);
+    window.removeEventListener('mousedown', armHistory);
+    window.removeEventListener('popstate', onHistoryBack);
     window.removeEventListener('mouseover', onHover);
   };
 }
