@@ -1,13 +1,13 @@
 // The TV screens in older TV browsers.
 //
 // Tailwind 4 writes CSS for browsers from 2023 on (Chrome 111+), but a TV keeps
-// the browser engine it shipped with: an LG TV from 2022 runs Chrome 87, and
-// even 2024 models run Chrome 108. Those engines throw away whole blocks of
+// the engine it shipped with: apps on an LG TV from 2021 run Chrome 79, from
+// 2022 Chrome 87, and even 2024 models run Chrome 108. Those engines throw away whole blocks of
 // Tailwind's output (cascade layers, :is()/:where() selectors, the separate
 // translate/scale/rotate properties), so the TV screens came out unstyled.
 //
 // After the build, this rewrites the TV stylesheet (only that one: the desktop
-// app's WebView is modern) into CSS that Chrome 80 understands:
+// app's WebView is modern) into CSS that Chrome 79 understands:
 //   - Lightning CSS lowers colours, logical properties, `inset` and media
 //     ranges, and adds -webkit- prefixes;
 //   - cascade layers are unwrapped in order (Tailwind already writes them in
@@ -15,30 +15,36 @@
 //   - :is() and :where() selectors are written out in full;
 //   - translate/scale/rotate get a `transform` to fall back on;
 //   - Tailwind's starting values for its --tw-* variables apply everywhere,
-//     for engines without @property.
+//     for engines without @property;
+//   - flex rows and columns get margins where the engine ignores their `gap`.
 
 import { createHash } from 'node:crypto';
 import { transform } from 'lightningcss';
 import postcss, { type AtRule, type ChildNode, type Root, type Rule } from 'postcss';
 import type { Plugin } from 'vite';
 
-/** The oldest engine the TV screens are written for (LG's 2022 TVs run Chrome 87). */
-const CHROME = 80;
+/**
+ * The oldest engine the TV screens are written for: apps on LG's 2021 TVs
+ * (webOS 6) run Chrome 79. The build lowers the TV screens' script to it too.
+ */
+export const TV_CHROME = 79;
 
 export function legacyCss(css: string): string {
   const lowered = transform({
     filename: 'tv.css',
     code: new TextEncoder().encode(css),
     minify: true,
-    targets: { chrome: CHROME << 16 },
+    targets: { chrome: TV_CHROME << 16 },
   }).code;
   const root = postcss.parse(new TextDecoder().decode(lowered));
   unwrapLayers(root);
   root.walkRules((rule) => {
     if (!inKeyframes(rule) && /:(is|where)\(/.test(rule.selector)) rule.selector = expandSelectorList(rule.selector);
   });
+  lowerLogicalProperties(root);
   addTransformFallbacks(root);
   addGradientFallbacks(root);
+  addFlexGapFallbacks(root);
   return root.toString();
 }
 
@@ -325,6 +331,102 @@ function addGradientFallbacks(root: Root) {
       }),
     );
   });
+}
+
+// ------------------------------------------------------------------ logical properties
+
+/** Logical shorthands and the physical sides they set (the TV screens are left-to-right). */
+const LOGICAL: Record<string, string[]> = {
+  'padding-inline': ['padding-left', 'padding-right'],
+  'padding-block': ['padding-top', 'padding-bottom'],
+  'margin-inline': ['margin-left', 'margin-right'],
+  'margin-block': ['margin-top', 'margin-bottom'],
+  'inset-inline': ['left', 'right'],
+  'inset-block': ['top', 'bottom'],
+  inset: ['top', 'right', 'bottom', 'left'],
+  'padding-inline-start': ['padding-left'],
+  'padding-inline-end': ['padding-right'],
+  'padding-block-start': ['padding-top'],
+  'padding-block-end': ['padding-bottom'],
+  'margin-inline-start': ['margin-left'],
+  'margin-inline-end': ['margin-right'],
+  'margin-block-start': ['margin-top'],
+  'margin-block-end': ['margin-bottom'],
+  'inset-inline-start': ['left'],
+  'inset-inline-end': ['right'],
+  'inset-block-start': ['top'],
+  'inset-block-end': ['bottom'],
+};
+
+/**
+ * Tailwind writes `px-4` as `padding-inline` (Chrome 87+). Lightning CSS lowers
+ * these only when it can read the value, and Tailwind's values are
+ * `calc(var(--spacing) * 4)`, so the rest are written out here.
+ */
+function lowerLogicalProperties(root: Root) {
+  root.walkDecls((d) => {
+    const sides = LOGICAL[d.prop];
+    if (!sides) return;
+    const v = splitTop(d.value, ' ');
+    // Like `margin`: a missing value repeats the opposite side's (left takes
+    // right's), and one value sets every side.
+    const at = (i: number) => v[i] ?? (i === 3 ? (v[1] ?? v[0]) : v[0]);
+    sides.forEach((prop, i) => d.cloneBefore({ prop, value: at(i) }));
+    d.remove();
+  });
+}
+
+// ------------------------------------------------------------------ flex gap
+
+/** A single class, like `.gap-4` or `.md\:gap-1\.5`. */
+const ONE_CLASS = /^\.(?:\\.|[\w-])+$/;
+/** Items that already place themselves: their own margins and absolute positioning win. */
+const PLACED_X = ':not(.absolute):not(.fixed):not([class*="ml-"]):not([class*="mx-"])';
+const PLACED_Y = ':not(.absolute):not(.fixed):not([class*="mt-"]):not([class*="my-"])';
+
+/**
+ * Engines before Chrome 84 ignore `gap` in flex rows and columns (grids are
+ * fine). The TV screens mark those engines with `html.no-flex-gap`; there, a
+ * margin on every item after the first stands in for the gap. A row that wraps
+ * gets no gap between its lines.
+ */
+function addFlexGapFallbacks(root: Root) {
+  const rules: Rule[] = [];
+  root.walkRules((rule) => {
+    if (!inKeyframes(rule) && ONE_CLASS.test(rule.selector)) rules.push(rule);
+  });
+  for (const rule of rules) {
+    let row: string | undefined;
+    let column: string | undefined;
+    rule.each((n: ChildNode) => {
+      if (n.type !== 'decl') return;
+      if (n.prop === 'gap') {
+        const [r, c] = splitTop(n.value, ' ');
+        row = r;
+        column = c ?? r;
+      } else if (n.prop === 'row-gap') row = n.value;
+      else if (n.prop === 'column-gap') column = n.value;
+    });
+    const out: Rule[] = [];
+    const on = (container: string, item: string) => `html.no-flex-gap ${rule.selector}${container}>*+${item}`;
+    if (column) {
+      out.push(
+        postcss.rule({
+          selector: [on('.flex:not(.flex-col)', PLACED_X), on('.inline-flex:not(.flex-col)', PLACED_X)].join(','),
+          nodes: [postcss.decl({ prop: 'margin-left', value: column })],
+        }),
+      );
+    }
+    if (row) {
+      out.push(
+        postcss.rule({
+          selector: on('.flex-col', PLACED_Y),
+          nodes: [postcss.decl({ prop: 'margin-top', value: row })],
+        }),
+      );
+    }
+    if (out.length) rule.after(out);
+  }
 }
 
 /** `110%` or `1.1` as a plain number for `scale()`. */

@@ -212,7 +212,7 @@ function Hero({
           {meta.map((m, i) => (
             <span key={i} className="flex items-center gap-3">
               {i > 0 && <span className="text-ink-3">·</span>}
-              {m}
+              <span>{m}</span>
             </span>
           ))}
         </div>

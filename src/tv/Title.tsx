@@ -147,7 +147,7 @@ export function TitleScreen({
           {meta.map((m, i) => (
             <span key={i} className="flex items-center gap-3">
               {i > 0 && <span className="text-ink-3">·</span>}
-              {m}
+              <span>{m}</span>
             </span>
           ))}
         </div>
@@ -280,8 +280,8 @@ function EpisodeCard({ e, onPlay }: { e: TvEpisode; onPlay: () => void }) {
       <div className="relative aspect-video rounded-xl overflow-hidden bg-card">
         <Img src={img(e.thumbnail)} className="absolute inset-0 size-full object-cover" />
         {e.watched && (
-          <span className="absolute top-2.5 right-2.5 size-7 rounded-full bg-black/70 text-accent flex items-center justify-center text-[1rem] font-bold">
-            ✓
+          <span className="absolute top-2.5 right-2.5 size-7 rounded-full bg-black/70 text-accent flex items-center justify-center">
+            <Check className="size-[1.1rem]" strokeWidth={3} />
           </span>
         )}
         {progress > 0 && (

@@ -49,6 +49,11 @@ describe('legacyCss', () => {
       .focus\\:scale-110:focus{--tw-scale-x:110%;--tw-scale-y:110%;scale:var(--tw-scale-x) var(--tw-scale-y)}
       .group-focus\\:opacity-100:is(:where(.group):focus *){opacity:1}
       .bg-gradient-to-t{--tw-gradient-position:to top in oklab;background-image:linear-gradient(var(--tw-gradient-stops))}
+      .px-24{padding-inline:calc(var(--spacing) * 24)}
+      .-my-5{margin-block:calc(var(--spacing) * -5) 2px}
+      .inset-v{inset:var(--a) var(--b)}
+      .gap-4{gap:calc(var(--spacing) * 4)}
+      .gap-x-6{column-gap:calc(var(--spacing) * 6)}
     }
     .unlayered{color:red}`;
   const out = legacyCss(tailwindish);
@@ -79,6 +84,20 @@ describe('legacyCss', () => {
     expect(out).toContain('@supports not (translate:0)');
     expect(out).toMatch(/\.focus\\:scale-110:focus\{--tw-fallback-scale:1\.1;transform:translate\(/);
     expect(out).toContain('*,:before,:after{--tw-fallback-scale:1');
+  });
+
+  it('writes logical padding, margins and inset as physical sides', () => {
+    expect(out).toContain('.px-24{padding-left:calc(var(--spacing) * 24);padding-right:calc(var(--spacing) * 24)}');
+    expect(out).toContain('.-my-5{margin-top:calc(var(--spacing) * -5);margin-bottom:2px}');
+    expect(out).toContain('.inset-v{top:var(--a);right:var(--b);bottom:var(--a);left:var(--b)}');
+    expect(out).not.toMatch(/(padding|margin)-(inline|block)/);
+  });
+
+  it('spaces flex items with margins where flex gap is missing', () => {
+    expect(out).toContain('html.no-flex-gap .gap-4.flex:not(.flex-col)>*+:not(.absolute)');
+    expect(out).toMatch(/html\.no-flex-gap \.gap-4\.flex-col>\*\+[^{]*\{margin-top:calc\(var\(--spacing\) \* 4\)\}/);
+    expect(out).toMatch(/html\.no-flex-gap \.gap-x-6\.inline-flex:not\(\.flex-col\)[^{]*\{margin-left:calc/);
+    expect(out).not.toContain('.gap-x-6.flex-col');
   });
 
   it('gives gradients a plain version first', () => {

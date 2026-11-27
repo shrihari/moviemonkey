@@ -1,7 +1,7 @@
 import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
-import { tvLegacyCss } from './scripts/tv-legacy-css';
+import { TV_CHROME, tvLegacyCss } from './scripts/tv-legacy-css';
 
 // https://v2.tauri.app/start/frontend/vite/
 const host = process.env.TAURI_DEV_HOST;
@@ -19,7 +19,9 @@ export default defineConfig({
   },
   envPrefix: ['VITE_', 'TAURI_ENV_*'],
   build: {
-    target: process.env.TAURI_ENV_PLATFORM === 'windows' ? 'chrome110' : 'safari16',
+    // The same build makes the TV screens, which run in TV browsers as old as
+    // Chrome 79, so the script is written for that too.
+    target: [process.env.TAURI_ENV_PLATFORM === 'windows' ? 'chrome110' : 'safari16', `chrome${TV_CHROME}`],
     minify: !process.env.TAURI_ENV_DEBUG,
     sourcemap: !!process.env.TAURI_ENV_DEBUG,
     rollupOptions: {

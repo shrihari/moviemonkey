@@ -1,5 +1,5 @@
 import clsx from 'clsx';
-import { AudioLines, Captions, FastForward, Pause, Play, Rewind, SkipForward } from 'lucide-react';
+import { AudioLines, Captions, Check, FastForward, Pause, Play, Rewind, SkipForward } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, ApiError, base, mediaUrl, type PlayPlan, type SubOption } from './api';
 import { basicCaps, detectCaps, type Caps } from './caps';
@@ -617,8 +617,8 @@ function Menu({
             onClick={() => onPick(o.key)}
             className="w-full flex items-center gap-4 h-16 px-6 rounded-xl text-left text-[1.35rem] font-medium text-ink-2 focus:bg-white focus:text-black"
           >
-            <span className="w-6 text-accent">{o.selected ? '✓' : ''}</span>
-            {o.label}
+            <span className="w-6 text-accent">{o.selected && <Check className="size-6" strokeWidth={3} />}</span>
+            <span>{o.label}</span>
           </button>
         ))}
       </div>

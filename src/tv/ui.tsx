@@ -1,4 +1,5 @@
 import clsx from 'clsx';
+import { Check } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 import type { TitleSummary } from '../lib/types';
 import { hue } from '../lib/format';
@@ -38,7 +39,7 @@ export function Button({
       )}
     >
       {icon}
-      {children}
+      {children && <span>{children}</span>}
     </button>
   );
 }
@@ -99,8 +100,8 @@ export function PosterCard({
       <Placeholder t={t} />
       <Img src={img(t.poster, t.posterAlt, 'w342')} className="absolute inset-0 size-full object-cover" />
       {t.watched && (
-        <span className="absolute top-2.5 right-2.5 size-7 rounded-full bg-black/70 text-accent flex items-center justify-center text-[1rem] font-bold">
-          ✓
+        <span className="absolute top-2.5 right-2.5 size-7 rounded-full bg-black/70 text-accent flex items-center justify-center">
+          <Check className="size-[1.1rem]" strokeWidth={3} />
         </span>
       )}
       <span className="pointer-events-none absolute inset-0 rounded-xl ring-inset ring-white/0 group-focus:ring-[0.25rem] group-focus:ring-white transition-[box-shadow]" />

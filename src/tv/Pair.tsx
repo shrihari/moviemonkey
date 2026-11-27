@@ -1,3 +1,4 @@
+import { Delete } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { api, ApiError, deviceName, token } from './api';
 import { digitOf, focusDefault, onKeys } from './nav';
@@ -86,7 +87,7 @@ export function PairScreen({ server, onPaired }: { server: string; onPaired: () 
               onClick={() => press(k)}
               className="size-24 rounded-2xl bg-card text-[2.2rem] font-semibold transition-[transform,background-color,color] duration-150 focus:bg-white focus:text-black focus:scale-110"
             >
-              {k}
+              {k === '⌫' ? <Delete className="size-10 mx-auto" aria-label="Delete" /> : k}
             </button>
           ) : (
             <span key={i} />
