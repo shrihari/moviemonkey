@@ -307,6 +307,14 @@ impl Share {
 
     /// The paired device a token belongs to, if any. Updates "last seen" at
     /// most once a minute.
+    /// The id of the paired device a token belongs to.
+    pub(crate) fn device_id(&self, token: &str) -> Option<String> {
+        self.devices()
+            .into_iter()
+            .find(|d| constant_eq(&d.token, token))
+            .map(|d| d.id)
+    }
+
     pub(crate) fn check_token(&self, token: &str) -> bool {
         if token.len() < 32 {
             return false;

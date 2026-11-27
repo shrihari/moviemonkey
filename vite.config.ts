@@ -20,6 +20,10 @@ export default defineConfig({
     target: process.env.TAURI_ENV_PLATFORM === 'windows' ? 'chrome110' : 'safari16',
     minify: !process.env.TAURI_ENV_DEBUG,
     sourcemap: !!process.env.TAURI_ENV_DEBUG,
+    rollupOptions: {
+      // The app, and the TV screens Movie Monkey serves to TVs on the network.
+      input: { main: 'index.html', tv: 'tv.html' },
+    },
   },
   test: {
     environment: 'node',

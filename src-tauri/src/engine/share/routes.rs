@@ -244,7 +244,16 @@ struct PlayBody {
     force_hls: bool,
 }
 
-async fn play(State(share): S, Path(id): Path<String>, Json(b): Json<PlayBody>) -> Response {
+async fn play(
+    State(share): S,
+    Path(id): Path<String>,
+    headers: HeaderMap,
+    uri: axum::http::Uri,
+    Json(b): Json<PlayBody>,
+) -> Response {
+    let owner = token_of(&headers, uri.query())
+        .and_then(|t| share.device_id(&t))
+        .unwrap_or_default();
     let Some((f, info)) = share.file_and_info(&id).await else {
         return error(
             StatusCode::NOT_FOUND,
@@ -263,10 +272,17 @@ async fn play(State(share): S, Path(id): Path<String>, Json(b): Json<PlayBody>) 
         "direct" => (Some(format!("/api/file/{id}")), 0.0, None),
         "hls" => {
             let sid = super::hex(&super::random_bytes::<12>());
-            match share
-                .media
-                .start_session(std::path::Path::new(&f.path), &info, &d, &b.caps, start, sid.clone())
-            {
+            match share.media.start_session(
+                std::path::Path::new(&f.path),
+                &info,
+                &d,
+                &b.caps,
+                media::NewSession {
+                    id: sid.clone(),
+                    owner: owner.clone(),
+                    offset: start,
+                },
+            ) {
                 Ok(_) => (Some(format!("/api/hls/{sid}/index.m3u8")), start, Some(sid)),
                 Err(e) => return error(StatusCode::INTERNAL_SERVER_ERROR, format!("{e:#}")),
             }
@@ -389,12 +405,23 @@ async fn hls(State(share): S, Path((sid, name)): Path<(String, String)>) -> Resp
         }
         tokio::time::sleep(Duration::from_millis(200)).await;
     }
-    let Ok(bytes) = tokio::fs::read(&path).await else {
+    let Ok(mut bytes) = tokio::fs::read(&path).await else {
         return error(
             StatusCode::SERVICE_UNAVAILABLE,
             "Still preparing this part of the video.",
         );
     };
+    if is_playlist {
+        // Until ffmpeg finishes, the playlist is still growing and players
+        // treat it like live TV, starting at the newest chunk. Ask them to
+        // start at the beginning.
+        let text = String::from_utf8_lossy(&bytes);
+        if !text.contains("#EXT-X-START") {
+            bytes = text
+                .replacen("#EXTM3U\n", "#EXTM3U\n#EXT-X-START:TIME-OFFSET=0,PRECISE=YES\n", 1)
+                .into_bytes();
+        }
+    }
     let ct = if is_playlist {
         "application/vnd.apple.mpegurl"
     } else if name.ends_with(".m4s") {

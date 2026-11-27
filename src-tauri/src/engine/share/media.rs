@@ -24,6 +24,11 @@ const AHEAD_SEGMENTS: u64 = 60;
 const KEEP_BEHIND: u64 = 30;
 /// A session nobody has asked anything of for this long is stopped.
 const IDLE_TIMEOUT: Duration = Duration::from_secs(15 * 60);
+/// Streams kept per device (the newest ones). A player that restarts quickly
+/// may still be reading the previous one for a moment.
+const SESSIONS_PER_DEVICE: usize = 2;
+/// Streams across all devices, so a few TVs can't swamp the computer.
+const SESSIONS_MAX: usize = 6;
 
 // ------------------------------------------------------------------- tools
 
@@ -456,6 +461,9 @@ pub fn decide(info: &MediaInfo, caps: &Caps, audio_pref: Option<u32>, have_ffmpe
 
 pub struct Session {
     pub id: String,
+    /// The paired device that asked for it.
+    owner: String,
+    created: i64,
     pub dir: PathBuf,
     child: Mutex<Option<Child>>,
     /// Tells the task that owns ffmpeg to stop it.
@@ -550,6 +558,13 @@ impl Session {
     }
 }
 
+/// Who a new stream is for and where it starts.
+pub struct NewSession {
+    pub id: String,
+    pub owner: String,
+    pub offset: f64,
+}
+
 pub fn segment_number(name: &str) -> Option<u64> {
     name.strip_prefix("seg")?.strip_suffix(".m4s")?.parse().ok()
 }
@@ -631,9 +646,10 @@ impl Media {
         info: &MediaInfo,
         decision: &Decision,
         caps: &Caps,
-        offset: f64,
-        id: String,
+        new: NewSession,
     ) -> Result<Arc<Session>> {
+        let NewSession { id, owner, offset } = new;
+        let owner = owner.as_str();
         let tools = self.tools();
         let ffmpeg = tools.ffmpeg.clone().ok_or_else(|| anyhow!("ffmpeg isn't installed"))?;
         let dir = self.work.join("hls").join(&id);
@@ -652,6 +668,8 @@ impl Media {
         let (kill_tx, kill_rx) = tokio::sync::oneshot::channel();
         let session = Arc::new(Session {
             id: id.clone(),
+            owner: owner.to_string(),
+            created: now_ms(),
             dir,
             child: Mutex::new(Some(child)),
             kill: Mutex::new(Some(kill_tx)),
@@ -662,10 +680,24 @@ impl Media {
             done: AtomicBool::new(false),
             failed: Mutex::new(None),
         });
-        // One session per TV is plenty: a new one replaces the old.
         let old: Vec<Arc<Session>> = {
             let mut map = self.sessions.lock().unwrap();
-            let old = map.drain().map(|(_, s)| s).collect();
+            let mut all: Vec<Arc<Session>> = map.values().cloned().collect();
+            all.sort_by_key(|s| s.created);
+            let mut drop_ids: Vec<String> = vec![];
+            let mine: Vec<&Arc<Session>> = all.iter().filter(|s| s.owner == owner).collect();
+            if mine.len() >= SESSIONS_PER_DEVICE {
+                drop_ids.extend(mine[..=mine.len() - SESSIONS_PER_DEVICE].iter().map(|s| s.id.clone()));
+            }
+            let remaining: Vec<&Arc<Session>> = all.iter().filter(|s| !drop_ids.contains(&s.id)).collect();
+            if remaining.len() >= SESSIONS_MAX {
+                drop_ids.extend(
+                    remaining[..=remaining.len() - SESSIONS_MAX]
+                        .iter()
+                        .map(|s| s.id.clone()),
+                );
+            }
+            let old = drop_ids.iter().filter_map(|i| map.remove(i)).collect();
             map.insert(id, session.clone());
             old
         };

@@ -46,6 +46,7 @@
     "@tauri-apps/plugin-opener": "^2.7.3",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
+    "hls.js": "^1.7.4",
     "lucide-react": "^1.80.0",
     "motion": "^14.14.0",
     "react": "^19.3.1",
