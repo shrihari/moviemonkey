@@ -1,6 +1,6 @@
 [package]
 name = "movie-monkey"
-version = "2.0.0-alpha.1"
+version = "2.0.0-alpha.2"
 description = "A beautiful, local-first movie & TV library"
 authors = ["Shrihari"]
 license = "CC0-1.0"
