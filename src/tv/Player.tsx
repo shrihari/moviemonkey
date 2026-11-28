@@ -1,7 +1,7 @@
 import clsx from 'clsx';
 import { AudioLines, Captions, Check, FastForward, Pause, Play, Rewind, SkipForward } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { api, ApiError, base, mediaUrl, type PlayPlan, type SubOption } from './api';
+import { api, ApiError, base, DEMO, mediaUrl, type PlayPlan, type SubOption } from './api';
 import { basicCaps, detectCaps, type Caps } from './caps';
 import { focusDefault, focusEl, onKeys } from './nav';
 import type { PlayRequest } from './Title';
@@ -259,6 +259,24 @@ export function PlayerScreen({
   const menuRef = useRef(menu);
   menuRef.current = menu;
 
+  // Leaving the app (the remote's Home button, another input) pauses the film
+  // and keeps the place; coming back shows it paused with the controls up.
+  useEffect(() => {
+    const onHidden = () => {
+      const v = video.current;
+      if (!document.hidden || !v || v.paused) return;
+      v.pause();
+      save();
+      poke();
+    };
+    document.addEventListener('visibilitychange', onHidden);
+    document.addEventListener('webkitvisibilitychange', onHidden);
+    return () => {
+      document.removeEventListener('visibilitychange', onHidden);
+      document.removeEventListener('webkitvisibilitychange', onHidden);
+    };
+  }, [save, poke]);
+
   const togglePlay = () => {
     const v = video.current;
     if (!v) return;
@@ -313,6 +331,12 @@ export function PlayerScreen({
   useEffect(
     () =>
       onKeys((key) => {
+        // STOP on the remote: leave the film, keeping the place (like BACK).
+        if (key === 'stop') {
+          save();
+          onExit();
+          return true;
+        }
         if (menu) {
           if (key === 'back') {
             setMenu(null);
@@ -385,7 +409,8 @@ export function PlayerScreen({
     <div className="fixed inset-0 bg-black" onMouseMove={poke}>
       <video
         ref={video}
-        crossOrigin="anonymous"
+        // Subtitles from Movie Monkey need it; the demo's films (archive.org) can't have it.
+        crossOrigin={DEMO ? undefined : 'anonymous'}
         playsInline
         className="absolute inset-0 size-full"
         onTimeUpdate={onTime}

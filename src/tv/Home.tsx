@@ -14,6 +14,11 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'shows', label: 'TV Shows' },
 ];
 
+/** A tab with nothing in it isn't shown (a library of only films has no TV Shows tab). */
+function kindOf(tab: Tab) {
+  return tab === 'movies' ? 'movie' : 'series';
+}
+
 function inProgress(t: TitleSummary) {
   if (!t.lastPlayedAt || t.watched) return false;
   return t.kind === 'movie' || t.watchedEpisodes < t.episodeCount;
@@ -34,6 +39,7 @@ export function HomeScreen({
   setTab,
   onOpen,
   onPlay,
+  onAbout,
 }: {
   titles: TitleSummary[];
   server: string;
@@ -41,13 +47,14 @@ export function HomeScreen({
   setTab: (t: Tab) => void;
   onOpen: (t: TitleSummary) => void;
   onPlay: (t: TitleSummary) => void;
+  onAbout: () => void;
 }) {
   return (
     <div data-scroll-y className="relative h-full overflow-y-auto no-scrollbar">
       <div data-nav-row="top" className="absolute top-0 inset-x-0 z-20 flex items-center gap-3 px-24 pt-10">
         <Monkey className="size-11 mr-5" />
         <div data-nav-group className="flex gap-2">
-          {TABS.map((t) => (
+          {TABS.filter((t) => t.id === 'home' || titles.some((x) => x.kind === kindOf(t.id))).map((t) => (
             <button
               key={t.id}
               data-nav
@@ -64,16 +71,20 @@ export function HomeScreen({
             </button>
           ))}
         </div>
-        <div className="ml-auto text-[1.15rem] text-ink-3">{server}</div>
+        <button
+          data-nav
+          data-nav-id="about"
+          onClick={onAbout}
+          className="ml-auto flex items-center gap-3 h-12 px-6 rounded-full text-[1.15rem] text-ink-3 transition-[background-color,color] duration-200 focus:bg-white focus:text-black"
+        >
+          <Info className="size-5" />
+          <span>{server}</span>
+        </button>
       </div>
       {tab === 'home' ? (
         <HomeRows titles={titles} onOpen={onOpen} onPlay={onPlay} />
       ) : (
-        <Grid
-          titles={titles.filter((t) => t.kind === (tab === 'movies' ? 'movie' : 'series'))}
-          onOpen={onOpen}
-          tab={tab}
-        />
+        <Grid titles={titles.filter((t) => t.kind === kindOf(tab))} onOpen={onOpen} tab={tab} />
       )}
     </div>
   );

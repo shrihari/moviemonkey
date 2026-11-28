@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { TitleSummary } from '../lib/types';
 import { api, ApiError, base, token, type TvTitle } from './api';
+import { AboutScreen } from './About';
 import { HomeScreen, type Tab } from './Home';
 import { focusDefault, installKeys } from './nav';
 import { PairScreen } from './Pair';
@@ -8,7 +9,11 @@ import { PlayerScreen } from './Player';
 import { episodeLabel, playRequestFor, TitleScreen, type PlayRequest } from './Title';
 import { Monkey, Spinner } from './ui';
 
-type Screen = { kind: 'home' } | { kind: 'title'; summary: TitleSummary } | { kind: 'player'; req: PlayRequest };
+type Screen =
+  | { kind: 'home' }
+  | { kind: 'title'; summary: TitleSummary }
+  | { kind: 'player'; req: PlayRequest }
+  | { kind: 'about' };
 
 type Phase = 'connecting' | 'unreachable' | 'pair' | 'ready';
 
@@ -198,6 +203,7 @@ export function TvApp() {
                 setTab={setTab}
                 onOpen={openTitle}
                 onPlay={playTitle}
+                onAbout={() => push({ kind: 'about' })}
               />
             )}
             {s.kind === 'title' && (
@@ -208,6 +214,7 @@ export function TvApp() {
                 onChanged={loadLibrary}
               />
             )}
+            {s.kind === 'about' && <AboutScreen server={server} onBack={back} />}
             {s.kind === 'player' && (
               <PlayerScreen key={s.req.file.id} req={s.req} onExit={back} onNext={nextFor(s.req)} />
             )}
