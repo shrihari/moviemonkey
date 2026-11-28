@@ -1,12 +1,14 @@
 import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
+import { TV_CHROME, tvLegacyCss } from './scripts/tv-legacy-css';
 
 // https://v2.tauri.app/start/frontend/vite/
 const host = process.env.TAURI_DEV_HOST;
 
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
+  // tvLegacyCss: the TV stylesheet, rewritten for the older browsers in TVs.
+  plugins: [react(), tailwindcss(), tvLegacyCss()],
   clearScreen: false,
   server: {
     port: 1420,
@@ -16,13 +18,22 @@ export default defineConfig({
     watch: { ignored: ['**/src-tauri/**'] },
   },
   envPrefix: ['VITE_', 'TAURI_ENV_*'],
+  // A constant, so normal builds drop the sample-films demo entirely.
+  define: { 'import.meta.env.VITE_TV_DEMO': JSON.stringify(process.env.VITE_TV_DEMO ?? '') },
   build: {
-    target: process.env.TAURI_ENV_PLATFORM === 'windows' ? 'chrome110' : 'safari16',
+    // The same build makes the TV screens, which run in TV browsers as old as
+    // Chrome 79, so the script is written for that too.
+    target: [process.env.TAURI_ENV_PLATFORM === 'windows' ? 'chrome110' : 'safari16', `chrome${TV_CHROME}`],
     minify: !process.env.TAURI_ENV_DEBUG,
     sourcemap: !!process.env.TAURI_ENV_DEBUG,
+    rollupOptions: {
+      // The app, and the TV screens Movie Monkey serves to TVs on the network.
+      // The sample-films demo for getmoviemonkey.com is the TV screens alone.
+      input: process.env.VITE_TV_DEMO === '1' ? { tv: 'tv.html' } : { main: 'index.html', tv: 'tv.html' },
+    },
   },
   test: {
     environment: 'node',
-    include: ['src/**/*.test.ts'],
+    include: ['src/**/*.test.ts', 'scripts/**/*.test.ts'],
   },
 });

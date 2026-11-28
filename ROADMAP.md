@@ -3,6 +3,23 @@
 A rolling list of what's next for Movie Monkey. Add ideas anywhere. When an item ships, move it to **Done** with the
 date.
 
+## Watch on TV
+
+The first version works from a TV's web browser (any TV) and a desktop browser. Next:
+
+- [ ] **Bundle ffmpeg** (a trimmed LGPL build, hardware encoders only) so converting works without installing it.
+- [ ] **LG webOS app**: a small app that finds Movie Monkey on the network (scan the TV's subnet for port 46766) and
+      opens the TV screens. Needs an LG developer account and Developer Mode on the TV to install; LG Content Store
+      review later.
+- [ ] **Test on real TVs**: LG first. Check what `canPlayType` really reports on webOS (MKV, DTS, Dolby Vision),
+      native HLS with HEVC, and the remote's Back key.
+- [ ] **Android TV / Google TV app** with its own player (ExoPlayer or libVLC), so it can play almost anything without
+      converting. Discovery over Bonjour (`_moviemonkey._tcp`).
+- [ ] **Picture subtitles** (Blu-ray PGS, DVD): burn them into the converted video when chosen.
+- [ ] **HDR to SDR tone mapping** when converting HDR video for a TV that can't show it (needs zscale/libplacebo).
+- [ ] **Resume positions on the computer**: show the TV's positions in Continue watching, and play from there.
+- [ ] **Search** on the TV.
+
 ## Next: small, high-value
 
 - [ ] **ID hints in folder and file names.** Exact matches that skip the search entirely. Every major library app

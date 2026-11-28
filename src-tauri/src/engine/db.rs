@@ -67,6 +67,14 @@ CREATE TABLE IF NOT EXISTS settings (
     key    TEXT PRIMARY KEY,
     value  TEXT NOT NULL
 );
+
+-- Where playback stopped, per file (written by the TV player).
+CREATE TABLE IF NOT EXISTS positions (
+    path        TEXT PRIMARY KEY,
+    position    REAL NOT NULL,
+    duration    REAL,
+    updated_at  INTEGER NOT NULL
+);
 "#;
 
 #[derive(Debug, Clone)]
@@ -482,6 +490,37 @@ impl Db {
             "INSERT INTO settings(key, value) VALUES (?1, ?2) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
             params![key, value],
         )?;
+        Ok(())
+    }
+}
+
+impl Db {
+    // -------------------------------------------------------------- positions
+
+    pub fn position(&self, path: &str) -> Result<Option<(f64, Option<f64>)>> {
+        Ok(self
+            .conn
+            .query_row(
+                "SELECT position, duration FROM positions WHERE path = ?1",
+                params![path],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .optional()?)
+    }
+
+    pub fn set_position(&self, path: &str, position: f64, duration: Option<f64>) -> Result<()> {
+        self.conn.execute(
+            "INSERT INTO positions(path, position, duration, updated_at) VALUES (?1, ?2, ?3, ?4)
+             ON CONFLICT(path) DO UPDATE SET position = excluded.position,
+               duration = COALESCE(excluded.duration, positions.duration), updated_at = excluded.updated_at",
+            params![path, position, duration, now()],
+        )?;
+        Ok(())
+    }
+
+    pub fn clear_position(&self, path: &str) -> Result<()> {
+        self.conn
+            .execute("DELETE FROM positions WHERE path = ?1", params![path])?;
         Ok(())
     }
 }

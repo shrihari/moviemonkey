@@ -3,7 +3,7 @@
 // Open the dev server with `?empty` to experience onboarding + live identification.
 
 import type { Backend } from '../lib/api';
-import type { LibrarySnapshot, Progress, TitleDetail, TitleSummary } from '../lib/types';
+import type { LibrarySnapshot, Progress, ShareStatus, TitleDetail, TitleSummary } from '../lib/types';
 
 type Fixture = { snapshot: LibrarySnapshot; details: Record<string, TitleDetail> };
 
@@ -99,6 +99,24 @@ export async function createMockBackend(): Promise<Backend> {
     emitProgress({ active: false, phase: 'idle', current: null });
     emitChanged();
   }
+
+  // Watch on TV, simulated: pairing completes on its own after a few seconds.
+  const shareCbs = new Set<() => void>();
+  const share: ShareStatus = {
+    enabled: false,
+    running: false,
+    port: null,
+    address: null,
+    name: 'This Mac',
+    keepRunning: false,
+    pairingCode: null,
+    pairingExpiresIn: null,
+    devices: [],
+    canConvert: true,
+    error: null,
+  };
+  const shareChanged = () => shareCbs.forEach((cb) => cb());
+  const shareSnap = async () => structuredClone(share);
 
   return {
     async getLibrary() {
@@ -206,6 +224,44 @@ export async function createMockBackend(): Promise<Backend> {
       return 48_211_337;
     },
     async clearCache() {},
+    shareStatus: shareSnap,
+    async shareSetEnabled(on) {
+      Object.assign(share, {
+        enabled: on,
+        running: on,
+        port: on ? 46766 : null,
+        address: on ? 'http://192.168.1.23:46766' : null,
+        pairingCode: null,
+      });
+      return shareSnap();
+    },
+    async sharePair() {
+      share.pairingCode = String(Math.floor(Math.random() * 10_000)).padStart(4, '0');
+      share.pairingExpiresIn = 600;
+      setTimeout(() => {
+        if (!share.pairingCode) return;
+        share.pairingCode = null;
+        share.devices.push({ id: String(Date.now()), name: 'LG TV', pairedAt: Date.now(), lastSeen: Date.now() });
+        shareChanged();
+      }, 6000);
+      return shareSnap();
+    },
+    async shareCancelPairing() {
+      share.pairingCode = null;
+      return shareSnap();
+    },
+    async shareRemoveDevice(id) {
+      share.devices = share.devices.filter((d) => d.id !== id);
+      return shareSnap();
+    },
+    async shareSetKeepRunning(on) {
+      share.keepRunning = on;
+      return shareSnap();
+    },
+    async onShare(cb) {
+      shareCbs.add(cb);
+      return () => shareCbs.delete(cb);
+    },
     async pickFolders() {
       return ['/Volumes/Media'];
     },

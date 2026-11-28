@@ -2,11 +2,13 @@
 // Tauri needs (macOS .icns, Windows .ico, Linux/Store PNGs, iOS/Android).
 //
 //   npm run icon
-//   node scripts/make-icon.mjs --preview out.png [--width 600] [--face none]
+//   node scripts/make-icon.mjs --preview out.png [--width 600] [--face none] [--square]
 //
 // --preview renders one PNG and leaves the app's icons alone. --width is the
 // monkey's width on the 1024px canvas; --face is its face colour ("none" lets
-// the tile's gold show through).
+// the tile's gold show through). --square fills the whole canvas with flat
+// gold (#FFCB3D), no rounded corners or shadow: LG's TV store rejects rounded
+// or transparent icons (see tv-apps/webos/README.md).
 //
 // The tile is a full-bleed golden squircle on Apple's macOS grid (824px shape
 // on a 1024px canvas, with a soft drop shadow), so macOS shows it as-is
@@ -32,6 +34,8 @@ const opt = (name) => {
 const preview = opt('--preview');
 if (opt('--width')) MONKEY_WIDTH = Number(opt('--width'));
 if (opt('--face')) COLORS.face = opt('--face');
+const square = args.includes('--square');
+if (square) COLORS.top = COLORS.bottom = '#FFCB3D'; // the LG app's tile colour (iconColor)
 
 const CHROME = [
   '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
@@ -59,7 +63,7 @@ for (let i = 0; i < 720; i++) {
   const y = 512 + half * Math.sign(s) * Math.abs(s) ** (2 / n);
   pts.push(`${x.toFixed(2)},${y.toFixed(2)}`);
 }
-const squircle = `M${pts.join(' L')} Z`;
+const squircle = square ? 'M0,0 L1024,0 L1024,1024 L0,1024 Z' : `M${pts.join(' L')} Z`;
 
 const html = `<!doctype html><html><head><style>html,body{margin:0;background:transparent}svg{display:block}</style></head>
 <body><svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
@@ -78,15 +82,15 @@ ${defs}
     <feDropShadow dx="0" dy="6" stdDeviation="10" flood-color="#7a4a00" flood-opacity="0.22"/>
   </filter>
 </defs>
-<path d="${squircle}" fill="url(#bg)" filter="url(#shadow)"/>
+<path d="${squircle}" fill="url(#bg)"${square ? '' : ' filter="url(#shadow)"'}/>
 <path d="${squircle}" fill="url(#glow)"/>
-<path d="${squircle}" fill="none" stroke="#000" stroke-opacity="0.06" stroke-width="2"/>
+${square ? '' : '<path d="' + squircle + '" fill="none" stroke="#000" stroke-opacity="0.06" stroke-width="2"/>'}
 <g id="m" filter="url(#faceShadow)">${face}</g>
 </svg>
 <script>
   // Centre the monkey at the requested width.
   const m = document.getElementById('m'), b = m.getBBox(), s = ${MONKEY_WIDTH} / b.width;
-  m.setAttribute('transform', 'translate(' + (512 - (b.x + b.width / 2) * s) + ',' + (528 - (b.y + b.height / 2) * s) + ') scale(' + s + ')');
+  m.setAttribute('transform', 'translate(' + (512 - (b.x + b.width / 2) * s) + ',' + (${square ? 512 : 528} - (b.y + b.height / 2) * s) + ') scale(' + s + ')');
 </script></body></html>`;
 
 const dir = mkdtempSync(join(tmpdir(), 'mm-icon-'));

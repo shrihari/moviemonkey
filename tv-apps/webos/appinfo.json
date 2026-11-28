@@ -1,0 +1,17 @@
+{
+  "id": "com.getmoviemonkey.tv",
+  "version": "1.0.0",
+  "vendor": "Movie Monkey",
+  "type": "web",
+  "main": "index.html",
+  "title": "Movie Monkey",
+  "icon": "icon.png",
+  "largeIcon": "largeIcon.png",
+  "iconColor": "#FFCB3D",
+  "resolution": "1920x1080",
+  "disableBackHistoryAPI": true,
+  "requiredACG": [
+    "network.query"
+  ],
+  "splashBackground": "splash.png"
+}

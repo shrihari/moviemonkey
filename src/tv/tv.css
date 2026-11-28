@@ -1,0 +1,97 @@
+/* Only the TV screens' own classes (the desktop app's would only add weight). */
+@import 'tailwindcss' source('.');
+
+/* The TV screens. Everything is sized in rem, and 1rem is 1/120 of the screen
+   width (16px on a 1920-wide TV), so the layout looks the same on every TV. */
+
+@theme inline {
+  --font-sans:
+    -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', 'LG Smart UI', 'SamsungOne', 'Roboto', 'Segoe UI',
+    system-ui, sans-serif;
+  --font-display:
+    -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter Display', 'LG Smart UI', 'SamsungOne', 'Roboto',
+    system-ui, sans-serif;
+  --color-bg: #0e0d0c;
+  --color-card: #1c1b1a;
+  --color-card-2: #262422;
+  --color-ink: #f3f1ee;
+  --color-ink-2: #b4b0a9;
+  --color-ink-3: #77736d;
+  --color-accent: #ffcb3d;
+  --color-accent-ink: #1f1600;
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+html {
+  font-size: calc(100vw / 120);
+  background: #0e0d0c;
+  color-scheme: dark;
+}
+@media (min-aspect-ratio: 16/9) {
+  html {
+    font-size: calc(100vh / 67.5);
+  }
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+}
+
+body {
+  font-family: var(--font-sans);
+  color: var(--color-ink);
+  background: var(--color-bg);
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+  cursor: default;
+}
+
+[data-nav] {
+  outline: none;
+}
+
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+@keyframes tv-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+.fade-in {
+  animation: tv-fade-in 0.35s ease-out both;
+}
+
+@keyframes tv-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.spin {
+  animation: tv-spin 0.9s linear infinite;
+}
+
+/* TV browsers before Chrome 88 (LG's 2022 TVs and older) have no aspect-ratio:
+   hold the card's shape with padding instead. Everything inside these cards is
+   positioned absolutely, so the padding alone sets the height. */
+@supports not (aspect-ratio: 1 / 1) {
+  .aspect-\[2\/3\]::before,
+  .aspect-video::before {
+    content: '';
+    display: block;
+  }
+  .aspect-\[2\/3\]::before {
+    padding-top: 150%;
+  }
+  .aspect-video::before {
+    padding-top: 56.25%;
+  }
+}

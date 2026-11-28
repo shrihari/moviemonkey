@@ -3,14 +3,18 @@ pub mod engine;
 use engine::images::{parse_request, ImageCache};
 use engine::library::{Event, Job, Library, Sink};
 use engine::models::*;
+use engine::share::{Assets, Share, ShareStatus};
 use std::sync::Arc;
 use tauri::http::Response;
-use tauri::{AppHandle, Emitter, Manager, State};
+use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
+use tauri::tray::TrayIconBuilder;
+use tauri::{AppHandle, Emitter, Manager, RunEvent, State, WindowEvent};
 use tauri_plugin_opener::OpenerExt;
 
 struct AppState {
     lib: Arc<Library>,
     images: ImageCache,
+    share: Arc<Share>,
 }
 
 type CmdResult<T> = Result<T, String>;
@@ -102,16 +106,153 @@ async fn clear_cache(state: State<'_, AppState>) -> CmdResult<()> {
     state.images.clear().map_err(err)
 }
 
+// ------------------------------------------------------------ watch on TV
+
+#[tauri::command]
+fn share_status(state: State<'_, AppState>) -> ShareStatus {
+    state.share.status()
+}
+
+#[tauri::command]
+async fn share_set_enabled(app: AppHandle, state: State<'_, AppState>, on: bool) -> CmdResult<ShareStatus> {
+    let res = state.share.set_enabled(on).await;
+    update_tray(&app);
+    res.map_err(err)?;
+    Ok(state.share.status())
+}
+
+#[tauri::command]
+fn share_pair(state: State<'_, AppState>) -> ShareStatus {
+    state.share.begin_pairing();
+    state.share.status()
+}
+
+#[tauri::command]
+fn share_cancel_pairing(state: State<'_, AppState>) -> ShareStatus {
+    state.share.cancel_pairing();
+    state.share.status()
+}
+
+#[tauri::command]
+fn share_remove_device(state: State<'_, AppState>, id: String) -> ShareStatus {
+    state.share.remove_device(&id);
+    state.share.status()
+}
+
+#[tauri::command]
+fn share_set_keep_running(app: AppHandle, state: State<'_, AppState>, on: bool) -> CmdResult<ShareStatus> {
+    state.share.set_keep_running(on).map_err(err)?;
+    update_tray(&app);
+    Ok(state.share.status())
+}
+
+/// Whether closing the window should leave Movie Monkey running in the menu
+/// bar, still sharing with TVs.
+fn keeps_running(app: &AppHandle) -> bool {
+    app.try_state::<AppState>()
+        .is_some_and(|s| s.share.enabled() && s.share.keep_running())
+}
+
+fn show_main(app: &AppHandle) {
+    #[cfg(target_os = "macos")]
+    let _ = app.set_activation_policy(tauri::ActivationPolicy::Regular);
+    if let Some(w) = app.get_webview_window("main") {
+        let _ = w.unminimize();
+        let _ = w.show();
+        let _ = w.set_focus();
+    }
+}
+
+const TRAY_ID: &str = "share";
+
+/// The menu-bar icon exists while sharing is on and set to keep running.
+fn update_tray(app: &AppHandle) {
+    let want = keeps_running(app);
+    match (app.tray_by_id(TRAY_ID), want) {
+        (None, true) => {
+            if let Err(e) = build_tray(app) {
+                log::warn!("menu bar icon: {e}");
+            }
+        }
+        (Some(_), false) => {
+            app.remove_tray_by_id(TRAY_ID);
+            // Nothing would be left to bring the window back.
+            if app
+                .get_webview_window("main")
+                .is_some_and(|w| !w.is_visible().unwrap_or(true))
+            {
+                show_main(app);
+            }
+        }
+        _ => {}
+    }
+}
+
+fn build_tray(app: &AppHandle) -> tauri::Result<()> {
+    let status = MenuItem::with_id(app, "status", "Sharing with your TVs", false, None::<&str>)?;
+    let open = MenuItem::with_id(app, "open", "Open Movie Monkey", true, None::<&str>)?;
+    let stop = MenuItem::with_id(app, "stop", "Stop Sharing", true, None::<&str>)?;
+    let quit = MenuItem::with_id(app, "quit", "Quit Movie Monkey", true, None::<&str>)?;
+    let sep = PredefinedMenuItem::separator(app)?;
+    let sep2 = PredefinedMenuItem::separator(app)?;
+    let menu = Menu::with_items(app, &[&status, &sep, &open, &stop, &sep2, &quit])?;
+    let icon = tauri::image::Image::from_bytes(include_bytes!("../icons/tray.png"))?;
+    TrayIconBuilder::with_id(TRAY_ID)
+        .icon(icon)
+        .icon_as_template(true)
+        .tooltip("Movie Monkey")
+        .menu(&menu)
+        .show_menu_on_left_click(true)
+        .on_menu_event(|app, event| match event.id().as_ref() {
+            "open" => show_main(app),
+            "stop" => {
+                let app = app.clone();
+                tauri::async_runtime::spawn(async move {
+                    if let Some(state) = app.try_state::<AppState>() {
+                        let _ = state.share.set_enabled(false).await;
+                    }
+                    update_tray(&app);
+                    let _ = app.emit("mm://share", ());
+                });
+            }
+            "quit" => app.exit(0),
+            _ => {}
+        })
+        .build(app)?;
+    Ok(())
+}
+
+/// The TV screens are part of the app's own frontend build (`tv.html`).
+fn tv_assets(app: &AppHandle) -> Assets {
+    let resolver = app.asset_resolver();
+    Arc::new(move |path: &str| {
+        if let Some(a) = resolver.get(path.to_string()) {
+            return Some((a.bytes, a.mime_type));
+        }
+        // `tauri dev` serves the frontend from Vite; fall back to the last build.
+        if cfg!(debug_assertions) {
+            let file = std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../dist")).join(path);
+            let bytes = std::fs::read(&file).ok()?;
+            let mime = match file.extension().and_then(|e| e.to_str()).unwrap_or("") {
+                "html" => "text/html",
+                "js" => "text/javascript",
+                "css" => "text/css",
+                "png" => "image/png",
+                "svg" => "image/svg+xml",
+                _ => "application/octet-stream",
+            };
+            return Some((bytes, mime.to_string()));
+        }
+        None
+    })
+}
+
 pub fn run() {
-    tauri::Builder::default()
+    let app = tauri::Builder::default()
         // Must be first: a second launch focuses this window (and hands over
         // any folder arguments) instead of opening the database twice.
         .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
-            if let Some(w) = app.get_webview_window("main") {
-                let _ = w.unminimize();
-                let _ = w.show();
-                let _ = w.set_focus();
-            }
+            show_main(app);
             let dirs: Vec<String> = args
                 .into_iter()
                 .skip(1)
@@ -146,9 +287,22 @@ pub fn run() {
                 responder.respond(resp);
             });
         })
+        .on_window_event(|window, event| {
+            // With "Keep sharing when the window is closed" on, closing the
+            // window leaves Movie Monkey in the menu bar instead of quitting.
+            if let WindowEvent::CloseRequested { api, .. } = event {
+                let app = window.app_handle();
+                if keeps_running(app) {
+                    api.prevent_close();
+                    let _ = window.hide();
+                    #[cfg(target_os = "macos")]
+                    let _ = app.set_activation_policy(tauri::ActivationPolicy::Accessory);
+                }
+            }
+        })
         .setup(|app| {
             let data_dir = app.path().app_data_dir()?;
-            let cache_dir = app.path().app_cache_dir()?.join("images");
+            let cache_dir = app.path().app_cache_dir()?;
             let handle = app.handle().clone();
             let sink: Sink = Arc::new(move |ev| match ev {
                 Event::Progress(p) => {
@@ -159,12 +313,29 @@ pub fn run() {
                 }
             });
             let lib = Library::new(&data_dir.join("library.sqlite"), sink)?;
-            let images = ImageCache::new(cache_dir, lib.providers().client().clone());
+            let images = ImageCache::new(cache_dir.join("images"), lib.providers().client().clone());
+            let share = Share::new(
+                lib.clone(),
+                images.clone(),
+                tv_assets(app.handle()),
+                cache_dir.join("share"),
+            );
+            let handle = app.handle().clone();
+            share.set_on_change(Arc::new(move || {
+                let _ = handle.emit("mm://share", ());
+            }));
             app.manage(AppState {
                 lib: lib.clone(),
                 images,
+                share: share.clone(),
             });
             tauri::async_runtime::spawn(lib.clone().run_worker());
+            let handle = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                share.resume().await;
+                update_tray(&handle);
+                let _ = handle.emit("mm://share", ());
+            });
             // Touching the library folders can block (slow/network drives, or a
             // macOS privacy prompt for Documents / external volumes), so never do
             // it on the main thread: the window must appear immediately.
@@ -200,7 +371,26 @@ pub fn run() {
             refresh_title,
             cache_size,
             clear_cache,
+            share_status,
+            share_set_enabled,
+            share_pair,
+            share_cancel_pairing,
+            share_remove_device,
+            share_set_keep_running,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running Movie Monkey");
+        .build(tauri::generate_context!())
+        .expect("error while building Movie Monkey");
+
+    app.run(|app, event| match event {
+        // Clicking the Dock icon while the window is hidden brings it back.
+        #[cfg(target_os = "macos")]
+        RunEvent::Reopen { .. } => show_main(app),
+        // Stop any conversions for TVs, so no ffmpeg outlives the app.
+        RunEvent::Exit => {
+            if let Some(state) = app.try_state::<AppState>() {
+                state.share.stop();
+            }
+        }
+        _ => {}
+    });
 }

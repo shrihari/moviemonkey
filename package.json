@@ -25,7 +25,9 @@
     "lint": "tsc --noEmit && prettier --check src && cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings",
     "test:live": "cargo test --manifest-path src-tauri/Cargo.toml --test identify_live -- --ignored --nocapture",
     "icon": "node scripts/make-icon.mjs",
-    "release:mac": "bash scripts/release-mac.sh"
+    "release:mac": "bash scripts/release-mac.sh",
+    "build:ffmpeg": "bash scripts/build-ffmpeg.sh",
+    "build:tv-demo": "bash scripts/build-tv-demo.sh"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.5",
@@ -34,6 +36,8 @@
     "@types/react": "^19.3.2",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.3.0",
+    "lightningcss": "^1.33.0",
+    "postcss": "^8.5.33",
     "prettier": "^3.10.1",
     "tailwindcss": "^4.3.5",
     "typescript": "^7.0.2",
@@ -46,6 +50,7 @@
     "@tauri-apps/plugin-opener": "^2.7.3",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
+    "hls.js": "^1.7.4",
     "lucide-react": "^1.80.0",
     "motion": "^14.14.0",
     "react": "^19.3.1",

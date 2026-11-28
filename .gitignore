@@ -16,3 +16,7 @@ coverage/
 demo-library/
 e2e/screenshots/
 .e2e-userdata/
+
+# Built by scripts/build-ffmpeg.sh
+src-tauri/binaries/
+store/lg/*.ipk
