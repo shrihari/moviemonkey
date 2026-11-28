@@ -1,0 +1,10 @@
+Movie Monkey includes FFmpeg (https://ffmpeg.org), version 9.1, as the
+separate programs "ffmpeg" and "ffprobe" inside the app. They get videos ready
+for Watch on TV.
+
+FFmpeg is licensed under the GNU Lesser General Public License, version 2.1 or
+later (https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html). This build
+includes no GPL or non-free parts.
+
+Source code: https://ffmpeg.org/releases/ffmpeg-9.1.tar.xz
+How it was built: scripts/build-ffmpeg.sh in https://github.com/shrihari/moviemonkey

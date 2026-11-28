@@ -124,6 +124,12 @@ export function SettingsView() {
           url="https://www.tvmaze.com"
           text="Additional TV show data, licensed under CC BY-SA 4.0."
         />
+        <Credit
+          name="FFmpeg"
+          lead="Includes"
+          url="https://ffmpeg.org"
+          text="Gets videos ready for your TV. Included under the LGPL 2.1; its source code is at ffmpeg.org."
+        />
       </Group>
     </div>
   );
@@ -141,19 +147,31 @@ function Group({ title, description, children }: { title: string; description?: 
   );
 }
 
-function Credit({ name, url, text, logo }: { name: string; url: string; text: string; logo?: string }) {
+function Credit({
+  name,
+  url,
+  text,
+  logo,
+  lead = 'Data from',
+}: {
+  name: string;
+  url: string;
+  text: string;
+  logo?: string;
+  lead?: string;
+}) {
   return (
     <div className="flex items-start gap-4 px-4 py-3.5">
       <div className="flex-1 text-[12.5px] text-ink-2 leading-relaxed">
         <div className="flex items-center gap-1.5 h-5 text-[13px] font-medium text-ink">
-          Data from
+          {lead}
           {/* TMDB's terms: an approved logo, less prominent than our own. */}
           {logo ? <img src={logo} alt={name} className="h-[11px] w-auto" draggable={false} /> : <span>{name}</span>}
         </div>
         {text}
       </div>
       <Button size="sm" variant="ghost" onClick={() => api.openUrl(url)}>
-        {url.replace('https://www.', '')}
+        {url.replace(/^https:\/\/(www\.)?/, '')}
       </Button>
     </div>
   );
@@ -322,7 +340,7 @@ function WatchOnTv() {
             label="Files your TV can't play"
             hint={
               st.canConvert
-                ? 'Converted on the fly with ffmpeg, which is installed on this Mac.'
+                ? 'Converted on the fly as you watch.'
                 : "These need ffmpeg, which isn't installed. Files your TV can play as they are work now."
             }
           >

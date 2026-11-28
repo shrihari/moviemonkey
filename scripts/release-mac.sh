@@ -54,9 +54,13 @@ else
   echo "note: building for Apple Silicon only (run: rustup target add x86_64-apple-darwin for Intel Macs too)"
 fi
 
-# Tauri signs the app with the hardened runtime, notarizes it and staples the
-# ticket, then wraps it in a disk image.
-npx tauri build --target "$target" --bundles app,dmg
+# ffmpeg and ffprobe for Watch on TV, built from source (cached after the
+# first time; see scripts/build-ffmpeg.sh).
+bash scripts/build-ffmpeg.sh
+
+# Tauri signs the app (and ffmpeg inside it) with the hardened runtime,
+# notarizes it and staples the ticket, then wraps it in a disk image.
+npx tauri build --target "$target" --bundles app,dmg --config src-tauri/tauri.ffmpeg.conf.json
 
 bundle="src-tauri/target/$target/release/bundle"
 app="$bundle/macos/Movie Monkey.app"
