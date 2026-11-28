@@ -60,7 +60,9 @@ function summaryOf(f: Film, s: Saved): TitleSummary {
 }
 
 /** Credits for the About screen. */
-export const demoCredits = films.map((f) => f.demo.credit);
+export function demoCredits(): string[] {
+  return films.map((f) => f.demo.credit);
+}
 
 export const demoApi = {
   info: async () => ({ app: 'Movie Monkey', name: 'Sample films', version: '', paired: true }),

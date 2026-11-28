@@ -18,6 +18,8 @@ export default defineConfig({
     watch: { ignored: ['**/src-tauri/**'] },
   },
   envPrefix: ['VITE_', 'TAURI_ENV_*'],
+  // A constant, so normal builds drop the sample-films demo entirely.
+  define: { 'import.meta.env.VITE_TV_DEMO': JSON.stringify(process.env.VITE_TV_DEMO ?? '') },
   build: {
     // The same build makes the TV screens, which run in TV browsers as old as
     // Chrome 79, so the script is written for that too.

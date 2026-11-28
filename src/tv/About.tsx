@@ -60,7 +60,7 @@ export function AboutScreen({ server, onBack }: { server: string; onBack: () => 
               certified by TMDB.
             </p>
           </div>
-          {DEMO && demoCredits.map((c) => <p key={c}>{c}</p>)}
+          {DEMO && demoCredits().map((c) => <p key={c}>{c}</p>)}
         </Section>
 
         <button
