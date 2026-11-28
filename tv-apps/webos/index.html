@@ -96,6 +96,20 @@
         background: #fff;
         color: #000;
       }
+      p.note {
+        margin-top: 3rem;
+        font-size: 1.25rem;
+        color: #77736d;
+      }
+      .policy {
+        margin: 2rem auto 0;
+        max-width: 64rem;
+        text-align: left;
+      }
+      .policy p {
+        max-width: none;
+        font-size: 1.3rem;
+      }
       [hidden] {
         display: none !important;
       }
@@ -124,6 +138,28 @@
           <button id="connect">Connect</button>
           <button id="retry">Look again</button>
         </div>
+        <p class="note">No Movie Monkey yet? It's free for Mac at getmoviemonkey.com. Or see it first:</p>
+        <div class="row" style="margin-top: 1.2rem">
+          <button id="demo">Try with sample films</button>
+          <button id="privacy-open">Privacy</button>
+        </div>
+      </section>
+      <section id="privacy" hidden>
+        <h1>Privacy</h1>
+        <div class="policy">
+          <p>
+            Movie Monkey doesn't collect anything about you: there are no accounts, no ads and no tracking. This app
+            talks only to Movie Monkey on your own computer, over your home network. To find it, the app checks the
+            addresses on your network for Movie Monkey. Your library, what you watch and where you stopped stay on your
+            computer.
+          </p>
+          <p>
+            The sample films stream from the Internet Archive (archive.org), and their artwork comes from TMDB. Where
+            you stopped in them is kept on this TV only.
+          </p>
+          <p>Full policy: getmoviemonkey.com/privacy · Questions: gfxindia@gmail.com</p>
+        </div>
+        <div class="row"><button id="privacy-close">Back</button></div>
       </section>
     </main>
     <script>
@@ -132,7 +168,7 @@
         return document.getElementById(id);
       };
       function show(id) {
-        ['finding', 'choose', 'missing'].forEach(function (s) {
+        ['finding', 'choose', 'missing', 'privacy'].forEach(function (s) {
           $(s).hidden = s !== id;
         });
       }
@@ -234,7 +270,10 @@
             open(s.base);
           };
           box.appendChild(b);
-          if (i === 0) setTimeout(function () { b.focus(); }, 0);
+          if (i === 0)
+            setTimeout(function () {
+              b.focus();
+            }, 0);
         });
         show('choose');
       }
@@ -242,14 +281,15 @@
       function find() {
         show('finding');
         var last = localStorage.getItem('mm.server');
-        (last ? probe(last, 2500) : Promise.resolve(null))
-          .then(function (hit) {
-            if (hit) return open(hit.base);
-            return tvAddress().then(function (ip) {
+        (last ? probe(last, 2500) : Promise.resolve(null)).then(function (hit) {
+          if (hit) return open(hit.base);
+          return tvAddress()
+            .then(function (ip) {
               if (!ip) return [];
               $('finding-detail').textContent = 'Checking ' + ip.split('.').slice(0, 3).join('.') + '.x';
               return scan(ip);
-            }).then(function (servers) {
+            })
+            .then(function (servers) {
               if (!servers) return;
               if (servers.length === 1) open(servers[0].base);
               else if (servers.length > 1) choose(servers);
@@ -258,7 +298,7 @@
                 $('retry').focus();
               }
             });
-          });
+        });
       }
 
       $('retry').onclick = find;
@@ -272,18 +312,84 @@
         });
       };
 
-      // Left and right move between the buttons; Back leaves the app.
-      document.addEventListener('keydown', function (e) {
-        var items = Array.prototype.slice.call(document.querySelectorAll('section:not([hidden]) button, section:not([hidden]) input'));
-        var i = items.indexOf(document.activeElement);
-        if (e.keyCode === 37 || e.keyCode === 39) {
-          if (document.activeElement && document.activeElement.tagName === 'INPUT' && e.keyCode === 37) return;
-          var n = items[(i + (e.keyCode === 39 ? 1 : -1) + items.length) % items.length];
-          if (n) n.focus();
+      // The sample films live on getmoviemonkey.com: no computer needed.
+      $('demo').onclick = function () {
+        location.replace('https://getmoviemonkey.com/tv/');
+      };
+      $('privacy-open').onclick = function () {
+        show('privacy');
+        $('privacy-close').focus();
+      };
+      $('privacy-close').onclick = function () {
+        show('missing');
+        $('privacy-open').focus();
+      };
+      // OK on the remote (or Enter on the on-screen keyboard) connects.
+      $('address').addEventListener('keydown', function (e) {
+        if (e.keyCode === 13) {
           e.preventDefault();
-        } else if (e.keyCode === 461 && window.PalmSystem) {
-          window.PalmSystem.platformBack();
+          $('connect').onclick();
         }
+      });
+
+      function visible() {
+        return Array.prototype.slice.call(
+          document.querySelectorAll('section:not([hidden]) button, section:not([hidden]) input'),
+        );
+      }
+
+      // The nearest button in that direction (left 37, up 38, right 39, down 40).
+      function nearest(from, key) {
+        var a = from.getBoundingClientRect();
+        var ax = a.left + a.width / 2;
+        var ay = a.top + a.height / 2;
+        var best = null;
+        var bestScore = Infinity;
+        visible().forEach(function (el) {
+          if (el === from) return;
+          var b = el.getBoundingClientRect();
+          var dx = b.left + b.width / 2 - ax;
+          var dy = b.top + b.height / 2 - ay;
+          var main = key === 37 ? -dx : key === 39 ? dx : key === 38 ? -dy : dy;
+          var cross = key === 37 || key === 39 ? Math.abs(dy) : Math.abs(dx);
+          if (main <= 1) return;
+          var score = main + cross * 2;
+          if (score < bestScore) {
+            bestScore = score;
+            best = el;
+          }
+        });
+        return best;
+      }
+
+      // Arrows move between buttons; Back leaves the app (or the privacy page).
+      document.addEventListener('keydown', function (e) {
+        var cur = document.activeElement;
+        if (e.keyCode >= 37 && e.keyCode <= 40) {
+          if (visible().indexOf(cur) < 0) {
+            var first = visible()[0];
+            if (first) first.focus();
+            e.preventDefault();
+            return;
+          }
+          // In the address box, left and right move the cursor until it reaches an end.
+          if (cur.tagName === 'INPUT' && (e.keyCode === 37 || e.keyCode === 39)) {
+            var atStart = cur.selectionStart === 0 && cur.selectionEnd === 0;
+            var atEnd = cur.selectionStart === cur.value.length;
+            if ((e.keyCode === 37 && !atStart) || (e.keyCode === 39 && !atEnd)) return;
+          }
+          var next = nearest(cur, e.keyCode);
+          if (next) next.focus();
+          e.preventDefault();
+        } else if (e.keyCode === 461) {
+          if (!$('privacy').hidden) $('privacy-close').onclick();
+          else if (window.PalmSystem) window.PalmSystem.platformBack();
+        }
+      });
+      // Pointing with the Magic Remote focuses what it's over.
+      document.addEventListener('mouseover', function (e) {
+        var t = e.target;
+        if ((t.tagName === 'BUTTON' || t.tagName === 'INPUT') && document.activeElement !== t) t.focus();
       });
 
       find();
