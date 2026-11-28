@@ -26,7 +26,8 @@ export default defineConfig({
     sourcemap: !!process.env.TAURI_ENV_DEBUG,
     rollupOptions: {
       // The app, and the TV screens Movie Monkey serves to TVs on the network.
-      input: { main: 'index.html', tv: 'tv.html' },
+      // The sample-films demo for getmoviemonkey.com is the TV screens alone.
+      input: process.env.VITE_TV_DEMO === '1' ? { tv: 'tv.html' } : { main: 'index.html', tv: 'tv.html' },
     },
   },
   test: {

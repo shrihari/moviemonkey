@@ -4,6 +4,10 @@
 
 import type { EpisodeView, SeasonView, StatePatch, TitleDetail, TitleSummary } from '../lib/types';
 import type { Caps } from './caps';
+import { demoApi } from './demo';
+
+/** The sample-films build on getmoviemonkey.com (see demo.ts): no computer involved. */
+export const DEMO = import.meta.env.VITE_TV_DEMO === '1';
 
 const params = new URLSearchParams(location.search);
 const fromParam = params.get('server');
@@ -51,6 +55,8 @@ async function call<T>(path: string, init: RequestInit = {}): Promise<T> {
 
 /** A URL the TV loads directly (video, subtitles): the token goes in the query. */
 export function mediaUrl(path: string): string {
+  // Somewhere else entirely (the demo's films): no token for them.
+  if (/^https?:\/\//.test(path)) return path;
   const t = token.get() ?? '';
   return `${base}${path}${path.includes('?') ? '&' : '?'}t=${encodeURIComponent(t)}`;
 }
@@ -60,6 +66,7 @@ export function img(url: string | null | undefined, fallback?: string | null, si
   const pick = url || fallback;
   if (!pick) return undefined;
   const sized = (u: string) => (size ? u.replace(/\/t\/p\/w\d+\//, `/t/p/${size}/`) : u);
+  if (DEMO) return sized(pick);
   const q = new URLSearchParams({ u: sized(pick) });
   if (fallback && fallback !== pick) q.set('f', sized(fallback));
   return mediaUrl(`/api/img?${q.toString()}`);
@@ -116,7 +123,7 @@ export interface PlayPlan {
   fileName: string | null;
 }
 
-export const api = {
+const serverApi = {
   info: () => call<{ app: string; name: string; version: string; paired: boolean }>('/api/info'),
   pair: (code: string, name: string) =>
     call<{ token: string; name: string }>('/api/pair', { method: 'POST', body: JSON.stringify({ code, name }) }),
@@ -133,6 +140,8 @@ export const api = {
       body: JSON.stringify({ file, position, duration }),
     }),
 };
+
+export const api: typeof serverApi = DEMO ? demoApi : serverApi;
 
 /** A name for this device in Movie Monkey's list of paired TVs. */
 export function deviceName(): string {

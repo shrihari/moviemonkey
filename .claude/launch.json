@@ -4,8 +4,47 @@
     {
       "name": "web-preview",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "vite:dev"],
+      "runtimeArgs": [
+        "run",
+        "vite:dev"
+      ],
       "port": 1420
+    },
+    {
+      "name": "tv-demo",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "4330",
+        "--directory",
+        "../moviemonkey-website/public"
+      ],
+      "port": 4330
+    },
+    {
+      "name": "lg-launcher",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "4331",
+        "--directory",
+        "tv-apps/webos"
+      ],
+      "port": 4331
+    },
+    {
+      "name": "website-dist",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "4332",
+        "--directory",
+        "../moviemonkey-website/dist"
+      ],
+      "port": 4332
     }
   ]
 }
