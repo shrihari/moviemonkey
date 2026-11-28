@@ -52,6 +52,7 @@ if [ ! -x "$nasm" ]; then
   src=$(fetch "https://www.nasm.us/pub/nasm/releasebuilds/$NASM_VERSION/nasm-$NASM_VERSION.tar.xz" "$NASM_SHA256")
   unpack "$src" "$cache/nasm-src"
   (cd "$cache/nasm-src" && ./configure --prefix="$cache/nasm-$NASM_VERSION" >/dev/null && make -j"$jobs" >/dev/null && make install >/dev/null)
+  rm -rf "${cache:?}/nasm-src"
 fi
 
 # ------------------------------------------------------------------ ffmpeg
@@ -111,6 +112,7 @@ build() { # arch
     make -j"$jobs" >"$cache/make-$arch.log" 2>&1
     make install >/dev/null
   )
+  rm -rf "${dir:?}" # only the installed copy is kept
 }
 
 build arm64
