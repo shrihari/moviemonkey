@@ -29,8 +29,9 @@
 - **Watch on your TV.** Switch on _Settings › Watch on TV_ and pair a TV with a 4-digit code. The TV gets a
   remote-friendly version of your library and plays files straight from your computer over the home network. Files the
   TV can play stream as they are; for the rest (DTS audio, MKV on some TVs, old XviD rips…) Movie Monkey converts only
-  what the TV can't take, on the fly, with ffmpeg. Optionally it keeps sharing from the menu bar after you close the
-  window.
+  what the TV can't take, on the fly, with the ffmpeg built into the app. Optionally it keeps sharing from the menu
+  bar after you close the window. There's an [LG TV app](tv-apps/webos), and a demo with sample films at
+  [getmoviemonkey.com/tv](https://getmoviemonkey.com/tv/).
 - **Works offline.** Artwork is cached on disk after first view. Files added while offline wait quietly and are
   identified automatically once the network is back. They're never wrongly flagged for review.
 
@@ -163,8 +164,8 @@ Each release: bump `version` in `src-tauri/tauri.conf.json`, then
 npm run release:mac
 ```
 
-This builds the app (universal if the Intel target is installed), signs it, and has Apple notarize both the app and
-the `.dmg`. It then runs the same checks Gatekeeper will on someone else's Mac, and prints the path of the `.dmg` to
+This builds ffmpeg for the app the first time (`npm run build:ffmpeg`, about 10 minutes, cached after that), then
+the app (universal if the Intel target is installed), signs it, and has Apple notarize both the app and the `.dmg`. It then runs the same checks Gatekeeper will on someone else's Mac, and prints the path of the `.dmg` to
 upload. Notarization usually takes a few minutes. The app needs macOS 13 or later.
 
 ## Keyboard
